@@ -48,7 +48,7 @@
 /*----------------------------------------------------------------------------*/
 io_module_func *current_iomodule_func = &dpdk_module_func;
 #ifndef DISABLE_DPDK
-enum rte_proc_type_t eal_proc_type_detect(void);
+//extern enum rte_proc_type_t eal_proc_type_detect(void);
 /**
  * DPDK's RTE consumes some huge pages for internal bookkeeping.
  * Therefore, it is not always safe to reserve the exact amount
@@ -458,7 +458,9 @@ SetNetEnv(char *dev_name_list, char *port_stat_list)
 		}
 #endif
 		/* check if process is primary or secondary */
-		CONFIG.multi_process_is_master = (eal_proc_type_detect() == RTE_PROC_PRIMARY) ?
+		CONFIG.multi_process_is_master =
+                  //(eal_proc_type_detect() == RTE_PROC_PRIMARY) ?
+		  true ?
 			1 : 0;
 		
 #endif /* !DISABLE_DPDK */

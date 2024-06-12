@@ -1,4 +1,10 @@
 # mtcp-specific files
+/aclocal.m4
+/config.h.in
+/configure
+/dpdk
+/Makefile.in
+
 Makefile
 autom4te.cache/
 config.h
