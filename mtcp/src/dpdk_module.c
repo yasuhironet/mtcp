@@ -102,7 +102,7 @@ static struct rte_mempool *pktmbuf_pool[MAX_CPUS] = {NULL};
 //#define DEBUG				1
 #ifdef DEBUG
 /* ethernet addresses of ports */
-static struct ether_addr ports_eth_addr[RTE_MAX_ETHPORTS];
+static struct rte_ether_addr ports_eth_addr[RTE_MAX_ETHPORTS];
 #endif
 
 static struct rte_eth_dev_info dev_info[RTE_MAX_ETHPORTS];

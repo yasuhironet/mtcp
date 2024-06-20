@@ -390,6 +390,10 @@ SetNetEnv(char *dev_name_list, char *port_stat_list)
 				strcpy(CONFIG.eths[eidx].dev_name, iter_if->ifa_name);
 				strcpy(ifr.ifr_name, iter_if->ifa_name);
 
+	TRACE_CONFIG("eth[%d]: dev_name: %s, ifa_name: %s\n",
+			eidx, CONFIG.eths[eidx].dev_name,
+			iter_if->ifa_name);
+
 				/* Create socket */
 				int sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_IP);
 				if (sock == -1) {

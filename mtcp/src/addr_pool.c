@@ -112,7 +112,7 @@ CreateAddressPoolPerCore(int core, int num_queues,
 	uint32_t saddr_h, daddr_h;
 	uint16_t sport_h, dport_h;
 	int rss_core;
-#if 0
+#if 1
 	uint8_t endian_check = (current_iomodule_func == &dpdk_module_func) ?
 		0 : 1;
 #else
