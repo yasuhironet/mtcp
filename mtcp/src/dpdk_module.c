@@ -152,9 +152,14 @@ static struct rte_eth_conf port_conf = {
 	.txmode = {
 		.mq_mode = 		RTE_ETH_MQ_TX_NONE,
 #if RTE_VERSION >= RTE_VERSION_NUM(18, 5, 0, 0)
+#if 1
 		.offloads	=	(RTE_ETH_TX_OFFLOAD_IPV4_CKSUM |
 					 RTE_ETH_TX_OFFLOAD_UDP_CKSUM |
 					 RTE_ETH_TX_OFFLOAD_TCP_CKSUM)
+#else
+		.offloads	=	(RTE_ETH_TX_OFFLOAD_UDP_CKSUM |
+					 RTE_ETH_TX_OFFLOAD_TCP_CKSUM)
+#endif
 #endif
 	},
 };
@@ -373,6 +378,21 @@ dpdk_send_pkts(struct mtcp_thread_context *ctxt, int ifidx)
 				rte_eth_stats_reset(portid);
 		}
 #endif /* !ENABLE_STATS_IOCTL */
+#endif
+#if 0
+                for (i = 0; i < cnt; i++) {
+                        uint16_t cksum_orig, cksum_new;
+                        struct rte_ipv4_hdr *iph;
+                        iph = rte_pktmbuf_mtod_offset (pkts[i],
+                                struct rte_ipv4_hdr *,
+                                sizeof (struct rte_ether_hdr));
+                        cksum_orig = iph->hdr_checksum;
+                        iph->hdr_checksum = 0;
+                        cksum_new = rte_ipv4_cksum (iph);
+                        iph->hdr_checksum = cksum_new;
+                        printf ("pkts[%d]: checksum: orig: %#hx, new: %#hx comple: %#hx\n",
+                                i, cksum_orig, cksum_new, ~cksum_new);
+                }
 #endif
 		do {
 			/* tx cnt # of packets */
@@ -652,6 +672,7 @@ dpdk_load_module(void)
 	/* for Ethernet flow control settings */
 	struct rte_eth_fc_conf fc_conf;
 	/* setting the rss key */
+#if 0
 	static uint8_t key[] = {
 		0x05, 0x05, 0x05, 0x05, 0x05, 0x05, 0x05, 0x05, 0x05, 0x05, /* 10 */
 		0x05, 0x05, 0x05, 0x05, 0x05, 0x05, 0x05, 0x05, 0x05, 0x05, /* 20 */
@@ -660,6 +681,14 @@ dpdk_load_module(void)
 		0x05, 0x05, 0x05, 0x05, 0x05, 0x05, 0x05, 0x05, 0x05, 0x05, /* 50 */
 		0x05, 0x05  /* 60 - 8 */
 	};
+#else
+	static uint8_t key[] = {
+		0x05, 0x05, 0x05, 0x05, 0x05, 0x05, 0x05, 0x05, 0x05, 0x05, /* 10 */
+		0x05, 0x05, 0x05, 0x05, 0x05, 0x05, 0x05, 0x05, 0x05, 0x05, /* 20 */
+		0x05, 0x05, 0x05, 0x05, 0x05, 0x05, 0x05, 0x05, 0x05, 0x05, /* 30 */
+		0x05, 0x05, 0x05, 0x05, 0x05, 0x05, 0x05, 0x05, 0x05, 0x05, /* 40 */
+	};
+#endif
 
 	port_conf.rx_adv_conf.rss_conf.rss_key = (uint8_t *)key;
 	port_conf.rx_adv_conf.rss_conf.rss_key_len = sizeof(key);

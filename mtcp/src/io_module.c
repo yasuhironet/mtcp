@@ -128,6 +128,7 @@ probe_all_rte_devices(char **argv, int *argc, char *dev_name_list)
 					  "interface?\n", dev_token);
 				goto loop_over;
 			}
+#if 0
 			argv[*argc] = strdup("-w");
 			argv[*argc + 1] = calloc(PCI_LENGTH, 1);
 			if (argv[*argc] == NULL ||
@@ -140,6 +141,7 @@ probe_all_rte_devices(char **argv, int *argc, char *dev_name_list)
 				pd.pa.domain, pd.pa.bus, pd.pa.device,
 				pd.pa.function);
 			*argc += 2;
+#endif
 			if (pd.numa_socket > numa_id) numa_id = pd.numa_socket;
 		loop_over:
 			dev_token = strtok_r(NULL, delim, &saveptr);
@@ -722,6 +724,7 @@ FetchEndianType()
 	/* dpdk_module_func/onvm_module_func logic down below */
 	if (current_iomodule_func == &dpdk_module_func) {
 		(*current_iomodule_func).dev_ioctl(NULL, CONFIG.eths[0].ifindex, DRV_NAME, (void *)argp);
+                printf ("iomodule: dev_ioctl(DEV_NAME): %s\n", *argp);
 		if (!strcmp(*argp, "net_i40e"))
 			return 1;
 	}
