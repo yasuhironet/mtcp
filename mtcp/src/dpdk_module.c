@@ -379,17 +379,26 @@ dpdk_send_pkts(struct mtcp_thread_context *ctxt, int ifidx)
 		}
 #endif /* !ENABLE_STATS_IOCTL */
 #endif
-#if 0
+#if 1
                 for (i = 0; i < cnt; i++) {
                         uint16_t cksum_orig, cksum_new;
                         struct rte_ipv4_hdr *iph;
                         iph = rte_pktmbuf_mtod_offset (pkts[i],
                                 struct rte_ipv4_hdr *,
                                 sizeof (struct rte_ether_hdr));
+                        pkts[i]->ol_flags |= RTE_MBUF_F_TX_IPV4 | RTE_MBUF_F_TX_IP_CKSUM | RTE_MBUF_F_TX_TCP_CKSUM;
+                        printf ("pkts[%d]: l2_len: %d l3_len: %d l4_len: %d m->ol_flags: %#0lx\n",
+                                i, pkts[i]->l2_len, pkts[i]->l3_len, pkts[i]->l4_len, pkts[i]->ol_flags);
+                        printf ("pkts[%d]: iph: ver: %d ihl: %d "
+                                "total_length: %d\n", i,
+                                iph->version_ihl >> 4,
+                                iph->version_ihl & 0xf,
+                                (int) rte_be_to_cpu_16 (iph->total_length)
+                                );
                         cksum_orig = iph->hdr_checksum;
                         iph->hdr_checksum = 0;
                         cksum_new = rte_ipv4_cksum (iph);
-                        iph->hdr_checksum = cksum_new;
+                        //iph->hdr_checksum = cksum_new;
                         printf ("pkts[%d]: checksum: orig: %#hx, new: %#hx comple: %#hx\n",
                                 i, cksum_orig, cksum_new, ~cksum_new);
                 }
