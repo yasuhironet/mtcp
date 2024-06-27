@@ -379,7 +379,7 @@ dpdk_send_pkts(struct mtcp_thread_context *ctxt, int ifidx)
 		}
 #endif /* !ENABLE_STATS_IOCTL */
 #endif
-#if 1
+#if 0
                 for (i = 0; i < cnt; i++) {
                         uint16_t cksum_orig, cksum_new;
                         struct rte_ipv4_hdr *iph;
@@ -878,6 +878,8 @@ dpdk_dev_ioctl(struct mtcp_thread_context *ctx, int nif, int cmd, void *argp)
 		m = dpc->wmbufs[eidx].m_table[len_of_mbuf - 1];
 #if 0
 		m->ol_flags = PKT_TX_IP_CKSUM | PKT_TX_IPV4;
+#else
+                m->ol_flags |= RTE_MBUF_F_TX_IPV4 | RTE_MBUF_F_TX_IP_CKSUM;
 #endif /*0*/
 #if RTE_VERSION < RTE_VERSION_NUM(19, 8, 0, 0)
 		m->l2_len = sizeof(struct ether_hdr);
@@ -893,6 +895,8 @@ dpdk_dev_ioctl(struct mtcp_thread_context *ctx, int nif, int cmd, void *argp)
 		tcph = (struct tcphdr *)((unsigned char *)iph + (iph->ihl<<2));
 #if 0
 		m->ol_flags |= PKT_TX_TCP_CKSUM;
+#else
+                m->ol_flags |= RTE_MBUF_F_TX_TCP_CKSUM;
 #endif /*0*/
 #if RTE_VERSION < RTE_VERSION_NUM(19, 8, 0, 0)
 		tcph->check = rte_ipv4_phdr_cksum((struct ipv4_hdr *)iph, m->ol_flags);
@@ -948,6 +952,8 @@ dpdk_dev_ioctl(struct mtcp_thread_context *ctx, int nif, int cmd, void *argp)
 		m->l4_len = (tcph->doff<<2);
 #if 0
 		m->ol_flags = PKT_TX_TCP_CKSUM | PKT_TX_IP_CKSUM | PKT_TX_IPV4;
+#else
+                m->ol_flags |= RTE_MBUF_F_TX_IPV4 | RTE_MBUF_F_TX_IP_CKSUM | RTE_MBUF_F_TX_TCP_CKSUM;
 #endif /*0*/
 #if RTE_VERSION < RTE_VERSION_NUM(19, 8, 0, 0)
 		tcph->check = rte_ipv4_phdr_cksum((struct ipv4_hdr *)iph, m->ol_flags);
