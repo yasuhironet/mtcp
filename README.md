@@ -3,7 +3,7 @@
 This repository is a fork from [mTCP](https://github.com/mtcp-stack/mtcp).
 The development on mTCP seemed to stop for several years,
 and it did not work with the recent DPDK versions, so I partially fixed it.
-The purpose of this repository is to make it epwget (mTCP's wget)
+The purpose of this repository is to make epwget (mTCP's wget)
 work with the recent DPDK and Ubuntu.
 
 We are not using the DPDK submodule embeded in mTCP.
@@ -18,14 +18,16 @@ This is tested using:
 
 ## Compile
 
-- autolocal
-- autoheader
-- automake -a -c
-- autoconf
-- ./configure
-- make V=1
-- cd dpdk-iface-kmod/
-- make V=1
+```
+$ autolocal
+$ autoheader
+$ automake -a -c
+$ autoconf
+$ ./configure
+$ make V=1
+$ cd dpdk-iface-kmod/
+$ make V=1
+```
 
 ## Setup
 
