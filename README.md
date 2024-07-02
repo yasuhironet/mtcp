@@ -19,7 +19,7 @@ This is tested using:
 ## Compile
 
 ```
-$ autolocal
+$ aclocal
 $ autoheader
 $ automake -a -c
 $ autoconf
