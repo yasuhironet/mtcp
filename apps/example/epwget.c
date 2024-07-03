@@ -95,6 +95,10 @@ struct wget_stat
 
 	uint64_t sum_resp_time;
 	uint64_t max_resp_time;
+
+	uint64_t read_count;
+	uint64_t file_writes;
+	uint64_t file_write_count;
 };
 /*----------------------------------------------------------------------------*/
 struct thread_context
@@ -334,10 +338,11 @@ HandleReadEvent(thread_context_t ctx, int sockid, struct wget_vars *wv)
 		if (rd <= 0)
 			break;
 		ctx->stat.reads += rd;
+		ctx->stat.read_count++;
 
-		TRACE_APP("Socket %d: mtcp_read ret: %d, total_recv: %lu, "
-				"header_set: %d, header_len: %u, file_len: %lu\n", 
-				sockid, rd, wv->recv + rd, 
+		printf("read[%lu]: Socket %d: mtcp_read ret: %d, total_recv: %lu, "
+				"header_set: %d, header_len: %u, file_len: %lu\n",
+				ctx->stat.read_count, sockid, rd, wv->recv + rd,
 				wv->headerset, wv->header_len, wv->file_len);
 
 		pbuf = buf;
@@ -401,8 +406,11 @@ HandleReadEvent(thread_context_t ctx, int sockid, struct wget_vars *wv)
 					 assert(0);
 					 break;
 				 }
+                                 ctx->stat.file_write_count++;
+                                 ctx->stat.file_writes += _wr;
 				 wr += _wr;	
 				 wv->write += _wr;
+				printf("write[%lu]: +%d = %d / %d bytes (%lu / %lu) (file: %lu bytes)\n", ctx->stat.file_write_count, _wr, wr, rd, ctx->stat.file_writes, ctx->stat.reads, wv->file_len);
 			}
 		}
 		
