@@ -331,12 +331,11 @@ HandleReadEvent(thread_context_t ctx, int sockid, struct wget_vars *wv)
 	rd = 1;
 	while (rd > 0) {
 		rd = mtcp_read(mctx, sockid, buf, BUF_SIZE);
-                printf ("%s: read: %d bytes\n", __func__, rd);
 		if (rd <= 0)
 			break;
 		ctx->stat.reads += rd;
 
-		printf("Socket %d: mtcp_read ret: %d, total_recv: %lu, "
+		TRACE_APP("Socket %d: mtcp_read ret: %d, total_recv: %lu, "
 				"header_set: %d, header_len: %u, file_len: %lu\n", 
 				sockid, rd, wv->recv + rd, 
 				wv->headerset, wv->header_len, wv->file_len);
@@ -345,18 +344,12 @@ HandleReadEvent(thread_context_t ctx, int sockid, struct wget_vars *wv)
 		if (!wv->headerset) {
 			copy_len = MIN(rd, HTTP_HEADER_LEN - wv->resp_len);
 			memcpy(wv->response + wv->resp_len, buf, copy_len);
-                printf ("%s: resp_len: %d -> %d\n", __func__,
-                        wv->resp_len, wv->resp_len + copy_len);
 			wv->resp_len += copy_len;
 			wv->header_len = find_http_header(wv->response, wv->resp_len);
-                printf ("%s: header_len: %d\n", __func__,
-                        wv->header_len);
 			if (wv->header_len > 0) {
 				//wv->response[wv->header_len] = '\0';
 				wv->file_len = http_header_long_val(wv->response, 
 						CONTENT_LENGTH_HDR, sizeof(CONTENT_LENGTH_HDR) - 1);
-                printf ("%s: file_len: %ld\n", __func__,
-                        wv->file_len);
 				if (wv->file_len < 0) {
 					/* failed to find the Content-Length field */
 					wv->recv += rd;
@@ -365,20 +358,15 @@ HandleReadEvent(thread_context_t ctx, int sockid, struct wget_vars *wv)
 					return 0;
 				}
 
-				printf("Socket %d Parsed response header. "
+				TRACE_APP("Socket %d Parsed response header. "
 						"Header length: %u, File length: %lu (%luMB)\n", 
 						sockid, wv->header_len, 
 						wv->file_len, wv->file_len / 1024 / 1024);
 				wv->headerset = TRUE;
-                printf ("%s: recv(pointer): %ld -> %ld (advance: %u)\n", __func__,
-                        wv->recv, wv->recv + (rd - (wv->resp_len - wv->header_len)), (rd - (wv->resp_len - wv->header_len)));
 				wv->recv += (rd - (wv->resp_len - wv->header_len));
 				
-				//pbuf += (rd - (wv->resp_len - wv->header_len));
 				pbuf += wv->header_len;
-				//rd = (wv->resp_len - wv->header_len);
-                                rd -= wv->header_len;
-                printf ("%s: rd: reset to %d\n", __func__, rd);
+				rd -= wv->header_len;
 				//printf("Successfully parse header.\n");
 				//fflush(stdout);
 
@@ -406,8 +394,6 @@ HandleReadEvent(thread_context_t ctx, int sockid, struct wget_vars *wv)
 			int wr = 0;
 			while (wr < rd) {
 				int _wr = write(wv->fd, pbuf + wr, rd - wr);
-                printf ("%s: write: from buf[%d], %d bytes\n",
-                        __func__, (int)((pbuf + wr) - buf), rd - wr);
 				assert (_wr == rd - wr);
 				 if (_wr < 0) {
 					 perror("write");

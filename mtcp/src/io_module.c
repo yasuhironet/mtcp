@@ -392,10 +392,6 @@ SetNetEnv(char *dev_name_list, char *port_stat_list)
 				strcpy(CONFIG.eths[eidx].dev_name, iter_if->ifa_name);
 				strcpy(ifr.ifr_name, iter_if->ifa_name);
 
-	TRACE_CONFIG("eth[%d]: dev_name: %s, ifa_name: %s\n",
-			eidx, CONFIG.eths[eidx].dev_name,
-			iter_if->ifa_name);
-
 				/* Create socket */
 				int sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_IP);
 				if (sock == -1) {
@@ -724,8 +720,10 @@ FetchEndianType()
 	/* dpdk_module_func/onvm_module_func logic down below */
 	if (current_iomodule_func == &dpdk_module_func) {
 		(*current_iomodule_func).dev_ioctl(NULL, CONFIG.eths[0].ifindex, DRV_NAME, (void *)argp);
-                printf ("iomodule: dev_ioctl(DEV_NAME): %s\n", *argp);
+		printf ("iomodule: dev_ioctl(DEV_NAME): %s\n", *argp);
 		if (!strcmp(*argp, "net_i40e"))
+			return 1;
+		if (!strcmp(*argp, "net_e1000_igb"))
 			return 1;
 	}
 #endif

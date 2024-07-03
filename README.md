@@ -85,7 +85,6 @@ EAL: Probe PCI driver: net_e1000_igb (8086:157b) device: 0000:02:00.0 (socket -1
 EAL: Probe PCI driver: net_e1000_igb (8086:157b) device: 0000:03:00.0 (socket -1)
 EAL: Probe PCI driver: net_e1000_igb (8086:157b) device: 0000:04:00.0 (socket -1)
 TELEMETRY: No legacy callbacks, legacy socket not created
-eth[0]: dev_name: dpdk0, ifa_name: dpdk0
 Total number of attached devices: 1
 Interface name: dpdk0
 Configurations:
@@ -116,57 +115,16 @@ Initializing port 0... done:
 Port 0, MAC address: 00:E0:67:30:D9:BB
 
 
-Checking link status............................done
+Checking link status.............................done
 Port 0 Link Up - speed 1000 Mbps - full-duplex
 Configuration updated by mtcp_setconf().
 CPU 0: initialization finished.
 [mtcp_create_context:1376] CPU 0 is now the master thread.
-[CPU 0] dpdk0 flows:      0, RX:       1(pps) (err:     0),  0.00(Gbps), TX:       0(pps),  0.00(Gbps)
-[ ALL ] dpdk0 flows:      0, RX:       1(pps) (err:     0),  0.00(Gbps), TX:       0(pps),  0.00(Gbps)
+iomodule: dev_ioctl(DEV_NAME): net_e1000_igb
 Thread 0 handles 1 flows. connecting to 10.0.10.1:80
-HandleReadEvent: read: 1448 bytes
-Socket 1: mtcp_read ret: 1448, total_recv: 1448, header_set: 0, header_len: 0, file_len: 0
-HandleReadEvent: resp_len: 0 -> 1024
-HandleReadEvent: header_len: 224
-HandleReadEvent: file_len: 16291592
-Socket 1 Parsed response header. Header length: 224, File length: 16291592 (15MB)
-HandleReadEvent: recv(pointer): 0 -> 648 (advance: 648)
-HandleReadEvent: rd: reset to 1224
-HandleReadEvent: read: -1 bytes
-HandleReadEvent: read: 7240 bytes
-Socket 1: mtcp_read ret: 7240, total_recv: 9112, header_set: 1, header_len: 224, file_len: 16291592
-HandleReadEvent: read: -1 bytes
-HandleReadEvent: read: 1448 bytes
-Socket 1: mtcp_read ret: 1448, total_recv: 10560, header_set: 1, header_len: 224, file_len: 16291592
-HandleReadEvent: read: -1 bytes
-[ ALL ] connect:       1, read:    0 MB, write:    0 MB, completes:       0 (resp_time avg:    0, max:      0 us)
-HandleReadEvent: read: 1448 bytes
-Socket 1: mtcp_read ret: 1448, total_recv: 12008, header_set: 1, header_len: 224, file_len: 16291592
-HandleReadEvent: read: -1 bytes
-HandleReadEvent: read: 1448 bytes
-Socket 1: mtcp_read ret: 1448, total_recv: 13456, header_set: 1, header_len: 224, file_len: 16291592
-HandleReadEvent: read: -1 bytes
-HandleReadEvent: read: 5296 bytes
-Socket 1: mtcp_read ret: 5296, total_recv: 18752, header_set: 1, header_len: 224, file_len: 16291592
-HandleReadEvent: read: -1 bytes
-HandleReadEvent: read: 3392 bytes
-Socket 1: mtcp_read ret: 3392, total_recv: 22144, header_set: 1, header_len: 224, file_len: 16291592
-HandleReadEvent: read: -1 bytes
-HandleReadEvent: read: 4800 bytes
-Socket 1: mtcp_read ret: 4800, total_recv: 26944, header_set: 1, header_len: 224, file_len: 16291592
-HandleReadEvent: read: -1 bytes
-      :
-      :
-      :
-      :
-HandleReadEvent: read: 1448 bytes
-Socket 1: mtcp_read ret: 1448, total_recv: 16284632, header_set: 1, header_len: 224, file_len: 16291592
-HandleReadEvent: read: -1 bytes
-HandleReadEvent: read: 5792 bytes
-Socket 1: mtcp_read ret: 5792, total_recv: 16290424, header_set: 1, header_len: 224, file_len: 16291592
-HandleReadEvent: read: -1 bytes
-HandleReadEvent: read: 1448 bytes
-Socket 1: mtcp_read ret: 1448, total_recv: 16291872, header_set: 1, header_len: 224, file_len: 16291592
+[ ALL ] connect:       1, read:   12 MB, write:    0 MB, completes:       0 (resp_time avg:    0, max:      0 us)
+[CPU 0] dpdk0 flows:      1, RX:   12223(pps) (err:     0),  0.14(Gbps), TX:    6562(pps),  0.00(Gbps)
+[ ALL ] dpdk0 flows:      1, RX:   12223(pps) (err:     0),  0.14(Gbps), TX:    6562(pps),  0.00(Gbps)
 Response size set to 16291872
 [CPU 0] Completed 1 connections, errors: 0 incompletes: 0
 [RunMainLoop: 876] MTCP thread 0 finished.

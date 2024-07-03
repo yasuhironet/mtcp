@@ -152,14 +152,9 @@ static struct rte_eth_conf port_conf = {
 	.txmode = {
 		.mq_mode = 		RTE_ETH_MQ_TX_NONE,
 #if RTE_VERSION >= RTE_VERSION_NUM(18, 5, 0, 0)
-#if 1
 		.offloads	=	(RTE_ETH_TX_OFFLOAD_IPV4_CKSUM |
 					 RTE_ETH_TX_OFFLOAD_UDP_CKSUM |
 					 RTE_ETH_TX_OFFLOAD_TCP_CKSUM)
-#else
-		.offloads	=	(RTE_ETH_TX_OFFLOAD_UDP_CKSUM |
-					 RTE_ETH_TX_OFFLOAD_TCP_CKSUM)
-#endif
 #endif
 	},
 };
@@ -378,30 +373,6 @@ dpdk_send_pkts(struct mtcp_thread_context *ctxt, int ifidx)
 				rte_eth_stats_reset(portid);
 		}
 #endif /* !ENABLE_STATS_IOCTL */
-#endif
-#if 0
-                for (i = 0; i < cnt; i++) {
-                        uint16_t cksum_orig, cksum_new;
-                        struct rte_ipv4_hdr *iph;
-                        iph = rte_pktmbuf_mtod_offset (pkts[i],
-                                struct rte_ipv4_hdr *,
-                                sizeof (struct rte_ether_hdr));
-                        pkts[i]->ol_flags |= RTE_MBUF_F_TX_IPV4 | RTE_MBUF_F_TX_IP_CKSUM | RTE_MBUF_F_TX_TCP_CKSUM;
-                        printf ("pkts[%d]: l2_len: %d l3_len: %d l4_len: %d m->ol_flags: %#0lx\n",
-                                i, pkts[i]->l2_len, pkts[i]->l3_len, pkts[i]->l4_len, pkts[i]->ol_flags);
-                        printf ("pkts[%d]: iph: ver: %d ihl: %d "
-                                "total_length: %d\n", i,
-                                iph->version_ihl >> 4,
-                                iph->version_ihl & 0xf,
-                                (int) rte_be_to_cpu_16 (iph->total_length)
-                                );
-                        cksum_orig = iph->hdr_checksum;
-                        iph->hdr_checksum = 0;
-                        cksum_new = rte_ipv4_cksum (iph);
-                        //iph->hdr_checksum = cksum_new;
-                        printf ("pkts[%d]: checksum: orig: %#hx, new: %#hx comple: %#hx\n",
-                                i, cksum_orig, cksum_new, ~cksum_new);
-                }
 #endif
 		do {
 			/* tx cnt # of packets */

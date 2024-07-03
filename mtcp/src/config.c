@@ -150,24 +150,12 @@ EnrollRouteTableEntry(char *optstr)
 	} else if (current_iomodule_func == &dpdk_module_func ||
 		   current_iomodule_func == &onvm_module_func) {
 #ifndef DISABLE_DPDK
-#if 0
 		for (i = 0; i < num_devices; i++) {
 			if (strcmp(CONFIG.eths[i].dev_name, dev))
 				continue;
 			ifidx = CONFIG.eths[i].ifindex;
 			break;
 		}
-#else
-		i = 0;
-		if (! strcmp (dev, "dpdk0") && num_devices >= 0) {
-			i = 0;
-		} else if (! strcmp (dev, "dpdk1") && num_devices >= 1) {
-			i = 1;
-		}
-		ifidx = CONFIG.eths[i].ifindex;
-		snprintf (CONFIG.eths[i].dev_name,
-			sizeof (CONFIG.eths[i].dev_name), "dpdk%d", i);
-#endif
 #endif
 	}
 

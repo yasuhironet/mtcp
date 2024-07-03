@@ -229,8 +229,7 @@ main(int argc, char **argv)
 	if (ret == 0)
 		fprintf(stderr, "Creating device node entry...");
 	else {
-		fprintf(stderr, "Failed to create device node entry: %s\n",
-			DEV_PATH);
+		fprintf(stderr, "Failed to create device node entry\n",
 		return EXIT_FAILURE;
 	}
 
