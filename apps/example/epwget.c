@@ -262,7 +262,7 @@ SendHTTPRequest(thread_context_t ctx, int sockid, struct wget_vars *wv)
 				"try: %d, sent: %d\n", sockid, len, wr);
 	}
 	ctx->stat.writes += wr;
-	printf("Socket %d HTTP Request of %d bytes. sent.\n", sockid, wr);
+	TRACE_APP("Socket %d HTTP Request of %d bytes. sent.\n", sockid, wr);
 	wv->request_sent = TRUE;
 
 	ev.events = MTCP_EPOLLIN;
@@ -276,7 +276,7 @@ SendHTTPRequest(thread_context_t ctx, int sockid, struct wget_vars *wv)
 		snprintf(fname, MAX_FILE_LEN, "%s.%d", outfile, flowcnt++);
 		wv->fd = open(fname, O_WRONLY | O_CREAT | O_TRUNC, 0644);
 		if (wv->fd < 0) {
-			printf("Failed to open file descriptor for %s\n", fname);
+			TRACE_APP("Failed to open file descriptor for %s\n", fname);
 			exit(1);
 		}
 	}
@@ -292,7 +292,7 @@ DownloadComplete(thread_context_t ctx, int sockid, struct wget_vars *wv)
 #endif
 	uint64_t tdiff;
 
-	printf("Socket %d File download complete!\n", sockid);
+	TRACE_APP("Socket %d File download complete!\n", sockid);
 	gettimeofday(&wv->t_end, NULL);
 	CloseConnection(ctx, sockid);
 	ctx->stat.completes++;
@@ -307,11 +307,11 @@ DownloadComplete(thread_context_t ctx, int sockid, struct wget_vars *wv)
 	}
 	tdiff = (wv->t_end.tv_sec - wv->t_start.tv_sec) * 1000000 + 
 			(wv->t_end.tv_usec - wv->t_start.tv_usec);
-	printf("Socket %d Total received bytes: %lu (%luMB)\n", 
+	TRACE_APP("Socket %d Total received bytes: %lu (%luMB)\n", 
 			sockid, wv->recv, wv->recv / 1000000);
-	printf("Socket %d Total spent time: %lu us\n", sockid, tdiff);
+	TRACE_APP("Socket %d Total spent time: %lu us\n", sockid, tdiff);
 	if (tdiff > 0) {
-		printf("Socket %d Average bandwidth: %lf[MB/s]\n", 
+		TRACE_APP("Socket %d Average bandwidth: %lf[MB/s]\n", 
 				sockid, (double)wv->recv / tdiff);
 	}
 	ctx->stat.sum_resp_time += tdiff;
@@ -340,7 +340,7 @@ HandleReadEvent(thread_context_t ctx, int sockid, struct wget_vars *wv)
 		ctx->stat.reads += rd;
 		ctx->stat.read_count++;
 
-		printf("read[%lu]: Socket %d: mtcp_read ret: %d, total_recv: %lu, "
+		TRACE_APP("read[%lu]: Socket %d: mtcp_read ret: %d, total_recv: %lu, "
 				"header_set: %d, header_len: %u, file_len: %lu\n",
 				ctx->stat.read_count, sockid, rd, wv->recv + rd,
 				wv->headerset, wv->header_len, wv->file_len);
@@ -363,7 +363,7 @@ HandleReadEvent(thread_context_t ctx, int sockid, struct wget_vars *wv)
 					return 0;
 				}
 
-				printf("Socket %d Parsed response header. "
+				TRACE_APP("Socket %d Parsed response header. "
 						"Header length: %u, File length: %lu (%luMB)\n", 
 						sockid, wv->header_len, 
 						wv->file_len, wv->file_len / 1024 / 1024);
@@ -378,7 +378,7 @@ HandleReadEvent(thread_context_t ctx, int sockid, struct wget_vars *wv)
 			} else {
 				/* failed to parse response header */
 #if 0
-				printf("[CPU %d] Socket %d Failed to parse response header."
+				TRACE_APP("[CPU %d] Socket %d Failed to parse response header."
 						" Data: \n%s\n", ctx->core, sockid, wv->response);
 				fflush(stdout);
 #endif
@@ -410,7 +410,7 @@ HandleReadEvent(thread_context_t ctx, int sockid, struct wget_vars *wv)
                                  ctx->stat.file_writes += _wr;
 				 wr += _wr;	
 				 wv->write += _wr;
-				printf("write[%lu]: +%d = %d / %d bytes (%lu / %lu) (file: %lu bytes)\n", ctx->stat.file_write_count, _wr, wr, rd, ctx->stat.file_writes, ctx->stat.reads, wv->file_len);
+				TRACE_APP("write[%lu]: +%d = %d / %d bytes (%lu / %lu) (file: %lu bytes)\n", ctx->stat.file_write_count, _wr, wr, rd, ctx->stat.file_writes, ctx->stat.reads, wv->file_len);
 			}
 		}
 		
@@ -423,7 +423,7 @@ HandleReadEvent(thread_context_t ctx, int sockid, struct wget_vars *wv)
 
 	if (rd > 0) {
 		if (wv->header_len && (wv->recv >= wv->header_len + wv->file_len)) {
-			printf("Socket %d Done Write: "
+			TRACE_APP("Socket %d Done Write: "
 					"header: %u file: %lu recv: %lu write: %lu\n", 
 					sockid, wv->header_len, wv->file_len, 
 					wv->recv - wv->header_len, wv->write);
@@ -650,7 +650,7 @@ RunWgetMain(void *arg)
 				int err;
 				socklen_t len = sizeof(err);
 
-				printf("[CPU %d] Error on socket %d\n", 
+				TRACE_APP("[CPU %d] Error on socket %d\n", 
 						core, events[i].data.sockid);
 				ctx->stat.errors++;
 				ctx->errors++;
