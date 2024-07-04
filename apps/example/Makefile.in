@@ -16,7 +16,7 @@ endif
 
 # mtcp library and header 
 MTCP_FLD    =../../mtcp/
-MTCP_INC    =-I${MTCP_FLD}/include
+MTCP_INC    =-I${MTCP_FLD}/include -I${MTCP_FLD}/src/include -I../../io_engine/include/
 MTCP_LIB    =-L${MTCP_FLD}/lib
 MTCP_TARGET = ${MTCP_LIB}/libmtcp.a
 

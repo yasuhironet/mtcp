@@ -107,6 +107,9 @@ mtcp_init_rss(mctx_t mctx, in_addr_t saddr_base, int num_addr,
 int 
 mtcp_connect(mctx_t mctx, int sockid, 
 		const struct sockaddr *addr, socklen_t addrlen);
+int 
+mtcp_reconnect(mctx_t mctx, int sockid, 
+		const struct sockaddr *addr, socklen_t addrlen);
 
 int 
 mtcp_close(mctx_t mctx, int sockid);

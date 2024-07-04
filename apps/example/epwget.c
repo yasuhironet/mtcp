@@ -25,6 +25,12 @@
 #include "netlib.h"
 #include "debug.h"
 
+#include "tcp_stream.h"
+
+uint8_t is_offline_resume = 0;
+int offline_sockfd = -1;
+char *offline_filename = "offline.save";
+
 #define MAX_URL_LEN 128
 #define FILE_LEN    128
 #define FILE_IDX     10
@@ -198,6 +204,11 @@ CreateConnection(thread_context_t ctx)
 	addr.sin_addr.s_addr = daddr;
 	addr.sin_port = dport;
 	
+        if (is_offline_resume) {
+	ret = mtcp_reconnect(mctx, sockid, 
+			(struct sockaddr *)&addr, sizeof(struct sockaddr_in));
+        assert (ret >= 0);
+        } else {
 	ret = mtcp_connect(mctx, sockid, 
 			(struct sockaddr *)&addr, sizeof(struct sockaddr_in));
 	if (ret < 0) {
@@ -207,6 +218,7 @@ CreateConnection(thread_context_t ctx)
 			return -1;
 		}
 	}
+        }
 
 	ctx->started++;
 	ctx->pending++;
@@ -324,6 +336,180 @@ DownloadComplete(thread_context_t ctx, int sockid, struct wget_vars *wv)
 	return 0;
 }
 /*----------------------------------------------------------------------------*/
+
+struct stream_save {
+  uint8_t state; /* tcp state */
+  uint32_t snd_nxt;               /* send next */
+  uint32_t rcv_nxt;               /* receive next */
+};
+
+void
+offline_open ()
+{
+  offline_sockfd = open (offline_filename, O_RDONLY, 0644);
+  if (offline_sockfd < 0)
+    {
+      is_offline_resume = 0;
+      printf ("open offline.save failed. pause mode.\n");
+      offline_sockfd = open (offline_filename, O_RDWR | O_CREAT | O_TRUNC, 0644);
+      assert (offline_sockfd >= 0);
+    }
+  else
+    {
+      is_offline_resume = 1;
+      printf ("open offline.save succeeded. resume mode.\n");
+    }
+}
+
+int
+offline_pause (thread_context_t ctx, int sockid, struct wget_vars *wv)
+{
+  printf ("%s:%d: %s: enter\n", __FILE__, __LINE__, __func__);
+  printf ("%s: pausing at the status of %lu bytes received.\n",
+          __func__, wv->recv);
+  printf ("%s: shutting down.\n", __func__);
+
+  if (fio && wv->fd > 0)
+    {
+      close(wv->fd);
+      wv->fd = 0;
+    }
+
+  mtcp_manager_t mtcp;
+  socket_map_t socket;
+  tcp_stream *stream;
+
+  mtcp = GetMTCPManager(ctx->mctx);
+  assert (mtcp);
+
+  socket = &mtcp->smap[sockid];
+  assert (socket);
+
+  stream = socket->stream;
+  assert (stream);
+
+  printf ("stream->rcvvar->rcv_wnd: %u\n", stream->rcvvar->rcv_wnd);
+  printf ("stream->rcvvar->irs: %u\n", stream->rcvvar->irs);
+  printf ("stream->rcvvar->snd_wl1: %u\n", stream->rcvvar->snd_wl1);
+  printf ("stream->rcvvar->snd_wl2: %u\n", stream->rcvvar->snd_wl2);
+  printf ("stream->rcvvar->last_ack_seq: %u\n", stream->rcvvar->last_ack_seq);
+
+  printf ("stream->sndvar->cwnd: %u\n", stream->sndvar->cwnd);
+  printf ("stream->sndvar->ssthresh: %u\n", stream->sndvar->ssthresh);
+
+  printf ("stream->sndvar->mss: %u\n", stream->sndvar->mss);
+  printf ("stream->sndvar->eff_mss: %u\n", stream->sndvar->eff_mss);
+
+  printf ("stream->state: %d\n", stream->state);
+  printf ("stream->snd_nxt: %u\n", stream->snd_nxt);
+  printf ("stream->rcv_nxt: %u\n", stream->rcv_nxt);
+
+  struct stream_save save = { 0 };
+  save.state = stream->state;
+  save.snd_nxt = stream->snd_nxt;
+  save.rcv_nxt = stream->rcv_nxt;
+
+  assert (offline_sockfd >= 0);
+  int ret;
+
+  ret = write (offline_sockfd,
+               &save, sizeof (struct stream_save));
+  assert (ret == sizeof (struct stream_save));
+
+  ret = write (offline_sockfd,
+               wv, sizeof (struct wget_vars));
+  assert (ret == sizeof (struct wget_vars));
+
+  ret = write (offline_sockfd,
+               stream->rcvvar, sizeof (struct tcp_recv_vars));
+  assert (ret == sizeof (struct tcp_recv_vars));
+
+  ret = write (offline_sockfd,
+               stream->sndvar, sizeof (struct tcp_send_vars));
+  assert (ret == sizeof (struct tcp_send_vars));
+
+  close (offline_sockfd);
+
+  exit (0);
+  return 0;
+}
+
+int
+offline_resume (thread_context_t ctx, int sockid, struct wget_vars *wv)
+{
+  printf ("%s:%d: %s: enter\n", __FILE__, __LINE__, __func__);
+  printf ("%s: resume, loading from file: %s.\n", __func__,
+          offline_filename);
+
+  mtcp_manager_t mtcp;
+  socket_map_t socket;
+  tcp_stream *stream;
+
+  mtcp = GetMTCPManager(ctx->mctx);
+  assert (mtcp);
+
+  socket = &mtcp->smap[sockid];
+  assert (socket);
+
+  stream = socket->stream;
+  assert (stream);
+  assert (offline_sockfd >= 0);
+
+  int ret;
+  struct stream_save save = { 0 };
+
+  ret = read (offline_sockfd,
+               &save, sizeof (struct stream_save));
+  assert (ret == sizeof (struct stream_save));
+
+  ret = read (offline_sockfd,
+              wv, sizeof (struct wget_vars));
+  assert (ret == sizeof (struct wget_vars));
+
+  ret = read (offline_sockfd,
+              stream->rcvvar, sizeof (struct tcp_recv_vars));
+  assert (ret == sizeof (struct tcp_recv_vars));
+
+  ret = read (offline_sockfd,
+              stream->sndvar, sizeof (struct tcp_send_vars));
+  assert (ret == sizeof (struct tcp_send_vars));
+
+  close (offline_sockfd);
+
+  stream->state = save.state;
+  stream->snd_nxt = save.snd_nxt;
+  stream->rcv_nxt = save.rcv_nxt;
+
+  printf ("stream->rcvvar->rcv_wnd: %u\n", stream->rcvvar->rcv_wnd);
+  printf ("stream->rcvvar->irs: %u\n", stream->rcvvar->irs);
+  printf ("stream->rcvvar->snd_wl1: %u\n", stream->rcvvar->snd_wl1);
+  printf ("stream->rcvvar->snd_wl2: %u\n", stream->rcvvar->snd_wl2);
+  printf ("stream->rcvvar->last_ack_seq: %u\n", stream->rcvvar->last_ack_seq);
+
+  printf ("stream->sndvar->cwnd: %u\n", stream->sndvar->cwnd);
+  printf ("stream->sndvar->ssthresh: %u\n", stream->sndvar->ssthresh);
+
+  printf ("stream->sndvar->mss: %u\n", stream->sndvar->mss);
+  printf ("stream->sndvar->eff_mss: %u\n", stream->sndvar->eff_mss);
+
+  printf ("wv->request_sent: %d\n", wv->request_sent);
+
+  printf ("stream->state: %d\n", stream->state);
+  printf ("stream->snd_nxt: %u\n", stream->snd_nxt);
+  printf ("stream->rcv_nxt: %u\n", stream->rcv_nxt);
+
+  if (fio) {
+        char fname[MAX_FILE_LEN + 1];
+	snprintf(fname, MAX_FILE_LEN, "%s.%d", outfile, flowcnt++);
+	wv->fd = open (fname, O_WRONLY | O_APPEND, 0644);
+	assert (wv->fd >= 0);
+  }
+
+  return 0;
+}
+
+
+/*----------------------------------------------------------------------------*/
 static inline int
 HandleReadEvent(thread_context_t ctx, int sockid, struct wget_vars *wv)
 {
@@ -419,6 +605,10 @@ HandleReadEvent(thread_context_t ctx, int sockid, struct wget_vars *wv)
 			break;
 		}
 #endif
+
+                if (wv->recv > 1000000) {
+                        offline_pause (ctx, sockid, wv);
+                }
 	}
 
 	if (rd > 0) {
@@ -614,6 +804,8 @@ RunWgetMain(void *arg)
 	//prev_ts = TIMEVAL_TO_USEC(cur_tv);
 	prev_tv = cur_tv;
 
+        offline_open ();
+
 	while (!done[core]) {
 		gettimeofday(&cur_tv, NULL);
 		//cur_ts = TIMEVAL_TO_USEC(cur_tv);
@@ -662,10 +854,22 @@ RunWgetMain(void *arg)
 				CloseConnection(ctx, events[i].data.sockid);
 
 			} else if (events[i].events & MTCP_EPOLLIN) {
+
+                                if (is_offline_resume) {
+                                        offline_resume (ctx, events[i].data.sockid, &wvars[events[i].data.sockid]);
+                                        is_offline_resume = 0;
+                                }
+
 				HandleReadEvent(ctx, 
 						events[i].data.sockid, &wvars[events[i].data.sockid]);
 
 			} else if (events[i].events == MTCP_EPOLLOUT) {
+
+                                if (is_offline_resume) {
+                                        offline_resume (ctx, events[i].data.sockid, &wvars[events[i].data.sockid]);
+                                        is_offline_resume = 0;
+                                }
+
 				struct wget_vars *wv = &wvars[events[i].data.sockid];
 
 				if (!wv->request_sent) {

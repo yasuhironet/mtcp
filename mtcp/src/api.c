@@ -848,6 +848,173 @@ mtcp_connect(mctx_t mctx, int sockid,
 
 	return 0;
 }
+
+int 
+mtcp_reconnect(mctx_t mctx, int sockid, 
+		const struct sockaddr *addr, socklen_t addrlen)
+{
+	mtcp_manager_t mtcp;
+	socket_map_t socket;
+	tcp_stream *cur_stream;
+	struct sockaddr_in *addr_in;
+	in_addr_t dip;
+	in_port_t dport;
+	int is_dyn_bound = FALSE;
+	int ret, nif;
+
+	mtcp = GetMTCPManager(mctx);
+	if (!mtcp) {
+		return -1;
+	}
+
+	if (sockid < 0 || sockid >= CONFIG.max_concurrency) {
+		TRACE_API("Socket id %d out of range.\n", sockid);
+		errno = EBADF;
+		return -1;
+	}
+
+	if (mtcp->smap[sockid].socktype == MTCP_SOCK_UNUSED) {
+		TRACE_API("Invalid socket id: %d\n", sockid);
+		errno = EBADF;
+		return -1;
+	}
+	
+	if (mtcp->smap[sockid].socktype != MTCP_SOCK_STREAM) {
+		TRACE_API("Not an end socket. id: %d\n", sockid);
+		errno = ENOTSOCK;
+		return -1;
+	}
+
+	if (!addr) {
+		TRACE_API("Socket %d: empty address!\n", sockid);
+		errno = EFAULT;
+		return -1;
+	}
+
+	/* we only allow bind() for AF_INET address */
+	if (addr->sa_family != AF_INET || addrlen < sizeof(struct sockaddr_in)) {
+		TRACE_API("Socket %d: invalid argument!\n", sockid);
+		errno = EAFNOSUPPORT;
+		return -1;
+	}
+
+	socket = &mtcp->smap[sockid];
+	if (socket->stream) {
+		TRACE_API("Socket %d: stream already exist!\n", sockid);
+		if (socket->stream->state >= TCP_ST_ESTABLISHED) {
+			errno = EISCONN;
+		} else {
+			errno = EALREADY;
+		}
+		return -1;
+	}
+
+	addr_in = (struct sockaddr_in *)addr;
+	dip = addr_in->sin_addr.s_addr;
+	dport = addr_in->sin_port;
+
+	/* address binding */
+	if ((socket->opts & MTCP_ADDR_BIND) && 
+	    socket->saddr.sin_port != INPORT_ANY &&
+	    socket->saddr.sin_addr.s_addr != INADDR_ANY) {
+		int rss_core;
+		uint8_t endian_check = FetchEndianType();
+		
+		rss_core = GetRSSCPUCore(socket->saddr.sin_addr.s_addr, dip, 
+					 socket->saddr.sin_port, dport, num_queues, endian_check);
+		
+		if (rss_core != mctx->cpu) {
+			errno = EINVAL;
+			return -1;
+		}
+	} else {
+		if (mtcp->ap) {
+			ret = FetchAddressPerCore(mtcp->ap, 
+						  mctx->cpu, num_queues, addr_in, &socket->saddr);
+		} else {
+			uint8_t is_external;
+			nif = GetOutputInterface(dip, &is_external);
+			if (nif < 0) {
+				errno = EINVAL;
+				return -1;
+			}
+			ret = FetchAddress(ap[nif], 
+					   mctx->cpu, num_queues, addr_in, &socket->saddr);
+			UNUSED(is_external);
+		}
+		if (ret < 0) {
+			errno = EAGAIN;
+			return -1;
+		}
+		socket->opts |= MTCP_ADDR_BIND;
+		is_dyn_bound = TRUE;
+	}
+
+	cur_stream = CreateTCPStream(mtcp, socket, socket->socktype, 
+			socket->saddr.sin_addr.s_addr, socket->saddr.sin_port, dip, dport);
+	if (!cur_stream) {
+		TRACE_ERROR("Socket %d: failed to create tcp_stream!\n", sockid);
+		errno = ENOMEM;
+		return -1;
+	}
+
+	if (is_dyn_bound)
+		cur_stream->is_bound_addr = TRUE;
+	cur_stream->sndvar->cwnd = 1;
+	cur_stream->sndvar->ssthresh = cur_stream->sndvar->mss * 10;
+
+	cur_stream->state = TCP_ST_ESTABLISHED;
+	mtcp->wakeup_flag = TRUE;
+#if 0
+	cur_stream->state = TCP_ST_SYN_SENT;
+	TRACE_STATE("Stream %d: TCP_ST_SYN_SENT\n", cur_stream->id);
+
+	SQ_LOCK(&mtcp->ctx->connect_lock);
+	ret = StreamEnqueue(mtcp->connectq, cur_stream);
+	SQ_UNLOCK(&mtcp->ctx->connect_lock);
+	mtcp->wakeup_flag = TRUE;
+	if (ret < 0) {
+		TRACE_ERROR("Socket %d: failed to enqueue to conenct queue!\n", sockid);
+		SQ_LOCK(&mtcp->ctx->destroyq_lock);
+		StreamEnqueue(mtcp->destroyq, cur_stream);
+		SQ_UNLOCK(&mtcp->ctx->destroyq_lock);
+		errno = EAGAIN;
+		return -1;
+	}
+#endif
+
+#if 0
+	/* if nonblocking socket, return EINPROGRESS */
+	if (socket->opts & MTCP_NONBLOCK) {
+		errno = EINPROGRESS;
+		return -1;
+
+	} else {
+		while (1) {
+			if (!cur_stream) {
+				TRACE_ERROR("STREAM DESTROYED\n");
+				errno = ETIMEDOUT;
+				return -1;
+			}
+			if (cur_stream->state > TCP_ST_ESTABLISHED) {
+				TRACE_ERROR("Socket %d: weird state %s\n", 
+						sockid, TCPStateToString(cur_stream));
+				// TODO: how to handle this?
+				errno = ENOSYS;
+				return -1;
+			}
+
+			if (cur_stream->state == TCP_ST_ESTABLISHED) {
+				break;
+			}
+			usleep(1000);
+		}
+	}
+#endif
+
+	return 0;
+}
+
 /*----------------------------------------------------------------------------*/
 static inline int 
 CloseStreamSocket(mctx_t mctx, int sockid)
