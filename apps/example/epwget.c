@@ -262,7 +262,7 @@ SendHTTPRequest(thread_context_t ctx, int sockid, struct wget_vars *wv)
 				"try: %d, sent: %d\n", sockid, len, wr);
 	}
 	ctx->stat.writes += wr;
-	TRACE_APP("Socket %d HTTP Request of %d bytes. sent.\n", sockid, wr);
+	printf("Socket %d HTTP Request of %d bytes. sent.\n", sockid, wr);
 	wv->request_sent = TRUE;
 
 	ev.events = MTCP_EPOLLIN;
@@ -276,7 +276,7 @@ SendHTTPRequest(thread_context_t ctx, int sockid, struct wget_vars *wv)
 		snprintf(fname, MAX_FILE_LEN, "%s.%d", outfile, flowcnt++);
 		wv->fd = open(fname, O_WRONLY | O_CREAT | O_TRUNC, 0644);
 		if (wv->fd < 0) {
-			TRACE_APP("Failed to open file descriptor for %s\n", fname);
+			printf("Failed to open file descriptor for %s\n", fname);
 			exit(1);
 		}
 	}
@@ -292,7 +292,7 @@ DownloadComplete(thread_context_t ctx, int sockid, struct wget_vars *wv)
 #endif
 	uint64_t tdiff;
 
-	TRACE_APP("Socket %d File download complete!\n", sockid);
+	printf("Socket %d File download complete!\n", sockid);
 	gettimeofday(&wv->t_end, NULL);
 	CloseConnection(ctx, sockid);
 	ctx->stat.completes++;
@@ -307,11 +307,11 @@ DownloadComplete(thread_context_t ctx, int sockid, struct wget_vars *wv)
 	}
 	tdiff = (wv->t_end.tv_sec - wv->t_start.tv_sec) * 1000000 + 
 			(wv->t_end.tv_usec - wv->t_start.tv_usec);
-	TRACE_APP("Socket %d Total received bytes: %lu (%luMB)\n", 
+	printf("Socket %d Total received bytes: %lu (%luMB)\n", 
 			sockid, wv->recv, wv->recv / 1000000);
-	TRACE_APP("Socket %d Total spent time: %lu us\n", sockid, tdiff);
+	printf("Socket %d Total spent time: %lu us\n", sockid, tdiff);
 	if (tdiff > 0) {
-		TRACE_APP("Socket %d Average bandwidth: %lf[MB/s]\n", 
+		printf("Socket %d Average bandwidth: %lf[MB/s]\n", 
 				sockid, (double)wv->recv / tdiff);
 	}
 	ctx->stat.sum_resp_time += tdiff;
@@ -363,7 +363,7 @@ HandleReadEvent(thread_context_t ctx, int sockid, struct wget_vars *wv)
 					return 0;
 				}
 
-				TRACE_APP("Socket %d Parsed response header. "
+				printf("Socket %d Parsed response header. "
 						"Header length: %u, File length: %lu (%luMB)\n", 
 						sockid, wv->header_len, 
 						wv->file_len, wv->file_len / 1024 / 1024);
@@ -414,14 +414,16 @@ HandleReadEvent(thread_context_t ctx, int sockid, struct wget_vars *wv)
 			}
 		}
 		
+#if 0
 		if (wv->header_len && (wv->recv >= wv->header_len + wv->file_len)) {
 			break;
 		}
+#endif
 	}
 
 	if (rd > 0) {
 		if (wv->header_len && (wv->recv >= wv->header_len + wv->file_len)) {
-			TRACE_APP("Socket %d Done Write: "
+			printf("Socket %d Done Write: "
 					"header: %u file: %lu recv: %lu write: %lu\n", 
 					sockid, wv->header_len, wv->file_len, 
 					wv->recv - wv->header_len, wv->write);
@@ -648,7 +650,7 @@ RunWgetMain(void *arg)
 				int err;
 				socklen_t len = sizeof(err);
 
-				TRACE_APP("[CPU %d] Error on socket %d\n", 
+				printf("[CPU %d] Error on socket %d\n", 
 						core, events[i].data.sockid);
 				ctx->stat.errors++;
 				ctx->errors++;
