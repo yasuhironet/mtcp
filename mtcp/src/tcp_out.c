@@ -1030,7 +1030,14 @@ AddtoACKList(mtcp_manager_t mtcp, tcp_stream *cur_stream)
 		cur_stream->sndvar->on_ack_list = TRUE;
 		TAILQ_INSERT_TAIL(&sender->ack_list, cur_stream, sndvar->ack_link);
 		sender->ack_list_cnt++;
+                TRACE_ERROR("%s:%d: %s: insert to ack_list.\n",
+                        __FILE__, __LINE__, __func__);
 	}
+        else {
+                TRACE_ERROR("%s:%d: %s: on_ack_list: %d.\n",
+                        __FILE__, __LINE__, __func__,
+                        cur_stream->sndvar->on_ack_list);
+        }
 }
 /*----------------------------------------------------------------------------*/
 inline void 
@@ -1082,12 +1089,14 @@ EnqueueACK(mtcp_manager_t mtcp,
 			cur_stream->state == TCP_ST_CLOSE_WAIT || 
 			cur_stream->state == TCP_ST_FIN_WAIT_1 || 
 			cur_stream->state == TCP_ST_FIN_WAIT_2)) {
-		TRACE_DBG("Stream %u: Enqueueing ack at state %s\n", 
+		TRACE_ERROR("Stream %u: Enqueueing ack at state %s\n", 
 				cur_stream->id, TCPStateToString(cur_stream));
 	}
 
 	if (opt == ACK_OPT_NOW) {
 		if (cur_stream->sndvar->ack_cnt < cur_stream->sndvar->ack_cnt + 1) {
+                        TRACE_ERROR("AckNOW: increment ack_cnt: %u\n",
+                                cur_stream->sndvar->ack_cnt);
 			cur_stream->sndvar->ack_cnt++;
 		}
 	} else if (opt == ACK_OPT_AGGREGATE) {

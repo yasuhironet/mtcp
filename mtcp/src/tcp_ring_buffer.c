@@ -304,6 +304,10 @@ RBPut(rb_manager_t rbm, struct tcp_ring_buffer* buff,
 	putx = cur_seq - buff->head_seq;
 	end_off = putx + len;
 	if (buff->size < end_off) {
+	        TRACE_ERROR("end_off = cur_seq: %d - buff->head_seq: %d + len: %d\n",
+                        cur_seq, buff->head_seq, len);
+	        TRACE_ERROR("buff->size: %d < end_off: %d\n",
+                        buff->size, end_off);
 		return -2;
 	}
 	

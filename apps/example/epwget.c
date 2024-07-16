@@ -361,6 +361,25 @@ offline_open ()
     }
 }
 
+void
+print_ring_buffer_state (struct tcp_ring_buffer *buff)
+{
+  if (! buff)
+    {
+      printf ("buff null.\n");
+      return;
+    }
+
+  printf ("buff->head_offset: %u\n", buff->head_offset);
+  printf ("buff->tail_offset: %u\n", buff->tail_offset);
+  printf ("buff->merged_len: %d\n", buff->merged_len);
+  printf ("buff->cum_len: %lu\n", buff->cum_len);
+  printf ("buff->last_len: %d\n", buff->last_len);
+  printf ("buff->size: %d\n", buff->size);
+  printf ("buff->head_seq: %u\n", buff->head_seq);
+  printf ("buff->init_seq: %u\n", buff->init_seq);
+}
+
 int
 offline_pause (thread_context_t ctx, int sockid, struct wget_vars *wv)
 {
@@ -404,6 +423,11 @@ offline_pause (thread_context_t ctx, int sockid, struct wget_vars *wv)
   printf ("stream->snd_nxt: %u\n", stream->snd_nxt);
   printf ("stream->rcv_nxt: %u\n", stream->rcv_nxt);
 
+  printf ("rcvbuf:\n");
+  print_ring_buffer_state (stream->rcvvar->rcvbuf);
+  //printf ("sndbuf:\n");
+  //print_ring_buffer_state (stream->sndvar->sndbuf);
+
   struct stream_save save = { 0 };
   save.state = stream->state;
   save.snd_nxt = stream->snd_nxt;
@@ -445,6 +469,11 @@ offline_resume (thread_context_t ctx, int sockid, struct wget_vars *wv)
   socket_map_t socket;
   tcp_stream *stream;
 
+  struct tcp_recv_vars rcvvar;
+  struct tcp_send_vars sndvar;
+  struct wget_vars wgetvar;
+  struct stream_save stream_save = { 0 };
+
   mtcp = GetMTCPManager(ctx->mctx);
   assert (mtcp);
 
@@ -456,29 +485,94 @@ offline_resume (thread_context_t ctx, int sockid, struct wget_vars *wv)
   assert (offline_sockfd >= 0);
 
   int ret;
-  struct stream_save save = { 0 };
 
   ret = read (offline_sockfd,
-               &save, sizeof (struct stream_save));
+               &stream_save, sizeof (struct stream_save));
   assert (ret == sizeof (struct stream_save));
 
   ret = read (offline_sockfd,
-              wv, sizeof (struct wget_vars));
+              &wgetvar, sizeof (struct wget_vars));
   assert (ret == sizeof (struct wget_vars));
 
   ret = read (offline_sockfd,
-              stream->rcvvar, sizeof (struct tcp_recv_vars));
+              &rcvvar, sizeof (struct tcp_recv_vars));
   assert (ret == sizeof (struct tcp_recv_vars));
 
   ret = read (offline_sockfd,
-              stream->sndvar, sizeof (struct tcp_send_vars));
+              &sndvar, sizeof (struct tcp_send_vars));
   assert (ret == sizeof (struct tcp_send_vars));
 
   close (offline_sockfd);
 
-  stream->state = save.state;
-  stream->snd_nxt = save.snd_nxt;
-  stream->rcv_nxt = save.rcv_nxt;
+  stream->state = stream_save.state;
+  stream->snd_nxt = stream_save.snd_nxt;
+  stream->rcv_nxt = stream_save.rcv_nxt;
+
+  stream->rcvvar->rcv_wnd = rcvvar.rcv_wnd;
+  stream->rcvvar->irs = rcvvar.irs;
+  stream->rcvvar->snd_wl1 = rcvvar.snd_wl1;
+  stream->rcvvar->snd_wl2 = rcvvar.snd_wl2;
+  stream->rcvvar->dup_acks = rcvvar.dup_acks;
+  stream->rcvvar->last_ack_seq = rcvvar.last_ack_seq;
+  stream->rcvvar->ts_recent = rcvvar.ts_recent;
+  stream->rcvvar->ts_lastack_rcvd = rcvvar.ts_lastack_rcvd;
+  stream->rcvvar->ts_last_ts_upd = rcvvar.ts_last_ts_upd;
+  stream->rcvvar->ts_tw_expire = rcvvar.ts_tw_expire;
+  stream->rcvvar->srtt = rcvvar.srtt;
+  stream->rcvvar->mdev = rcvvar.mdev;
+  stream->rcvvar->mdev_max = rcvvar.mdev_max;
+  stream->rcvvar->rttvar = rcvvar.rttvar;
+  stream->rcvvar->rtt_seq = rcvvar.rtt_seq;
+  stream->rcvvar->sacked_pkts = rcvvar.sacked_pkts;
+  memcpy (stream->rcvvar->sack_table, rcvvar.sack_table,
+          sizeof (struct sack_entry) * MAX_SACK_ENTRY);
+  stream->rcvvar->sacks = rcvvar.sacks;
+
+  stream->sndvar->ip_id = sndvar.ip_id;
+  stream->sndvar->mss = sndvar.mss;
+  stream->sndvar->eff_mss = sndvar.eff_mss;
+  stream->sndvar->wscale_mine = sndvar.wscale_mine;
+  stream->sndvar->wscale_peer = sndvar.wscale_peer;
+  stream->sndvar->snd_una = sndvar.snd_una;
+  stream->sndvar->snd_wnd = sndvar.snd_wnd;
+  stream->sndvar->peer_wnd = sndvar.peer_wnd;
+  stream->sndvar->iss = sndvar.iss;
+  stream->sndvar->fss = sndvar.fss;
+  stream->sndvar->nrtx = sndvar.nrtx;
+  stream->sndvar->max_nrtx = sndvar.max_nrtx;
+  stream->sndvar->rto = sndvar.rto;
+  stream->sndvar->ts_rto = sndvar.ts_rto;
+  stream->sndvar->cwnd = sndvar.cwnd;
+  stream->sndvar->ssthresh = sndvar.ssthresh;
+#if USE_CCP
+  stream->sndvar->missing_seq = sndvar.missing_seq;
+#endif
+  stream->sndvar->ts_lastack_sent = sndvar.ts_lastack_sent;
+  stream->sndvar->is_wack = sndvar.is_wack;
+  stream->sndvar->ack_cnt = sndvar.ack_cnt;
+#if 0
+  stream->sndvar->on_control_list = sndvar.on_control_list;
+  stream->sndvar->on_send_list = sndvar.on_send_list;
+  stream->sndvar->on_ack_list = sndvar.on_ack_list;
+  stream->sndvar->on_sendq = sndvar.on_sendq;
+  stream->sndvar->on_ackq = sndvar.on_ackq;
+  stream->sndvar->on_closeq = sndvar.on_closeq;
+  stream->sndvar->on_resetq = sndvar.on_resetq;
+  stream->sndvar->on_closeq_int = sndvar.on_closeq_int;
+  stream->sndvar->on_resetq_int = sndvar.on_resetq_int;
+#else
+  stream->sndvar->on_control_list = 0;
+  stream->sndvar->on_send_list = 0;
+  stream->sndvar->on_ack_list = 0;
+  stream->sndvar->on_sendq = 0;
+  stream->sndvar->on_ackq = 0;
+  stream->sndvar->on_closeq = 0;
+  stream->sndvar->on_resetq = 0;
+  stream->sndvar->on_closeq_int = 0;
+  stream->sndvar->on_resetq_int = 0;
+#endif
+  stream->sndvar->is_fin_sent = sndvar.is_fin_sent;
+  stream->sndvar->is_fin_ackd = sndvar.is_fin_ackd;
 
   printf ("stream->rcvvar->rcv_wnd: %u\n", stream->rcvvar->rcv_wnd);
   printf ("stream->rcvvar->irs: %u\n", stream->rcvvar->irs);
@@ -497,6 +591,11 @@ offline_resume (thread_context_t ctx, int sockid, struct wget_vars *wv)
   printf ("stream->state: %d\n", stream->state);
   printf ("stream->snd_nxt: %u\n", stream->snd_nxt);
   printf ("stream->rcv_nxt: %u\n", stream->rcv_nxt);
+
+  printf ("rcvbuf:\n");
+  print_ring_buffer_state (stream->rcvvar->rcvbuf);
+  //printf ("sndbuf:\n");
+  //print_ring_buffer_state (stream->sndvar->sndbuf);
 
   if (fio) {
         char fname[MAX_FILE_LEN + 1];

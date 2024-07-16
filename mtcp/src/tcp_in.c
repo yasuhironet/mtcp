@@ -117,7 +117,7 @@ ValidateSequence(mtcp_manager_t mtcp, tcp_stream *cur_stream, uint32_t cur_ts,
 				(tcph->doff << 2) - TCP_HEADER_LEN)) {
 			/* if there is no timestamp */
 			/* TODO: implement here */
-			TRACE_DBG("No timestamp found.\n");
+			TRACE_ERROR("No timestamp found.\n");
 			return FALSE;
 		}
 
@@ -125,7 +125,7 @@ ValidateSequence(mtcp_manager_t mtcp, tcp_stream *cur_stream, uint32_t cur_ts,
 		if (TCP_SEQ_LT(ts.ts_val, cur_stream->rcvvar->ts_recent)) {
 			/* TODO: ts_recent should be invalidated 
 					 before timestamp wraparound for long idle flow */
-			TRACE_DBG("PAWS Detect wrong timestamp. "
+			TRACE_ERROR("PAWS Detect wrong timestamp. "
 					"seq: %u, ts_val: %u, prev: %u\n", 
 					seq, ts.ts_val, cur_stream->rcvvar->ts_recent);
 			EnqueueACK(mtcp, cur_stream, cur_ts, ACK_OPT_NOW);
@@ -133,7 +133,7 @@ ValidateSequence(mtcp_manager_t mtcp, tcp_stream *cur_stream, uint32_t cur_ts,
 		} else {
 			/* valid timestamp */
 			if (TCP_SEQ_GT(ts.ts_val, cur_stream->rcvvar->ts_recent)) {
-				TRACE_TSTAMP("Timestamp update. cur: %u, prior: %u "
+				TRACE_ERROR("Timestamp update. cur: %u, prior: %u "
 					"(time diff: %uus)\n", 
 					ts.ts_val, cur_stream->rcvvar->ts_recent, 
 					TS_TO_USEC(cur_ts - cur_stream->rcvvar->ts_last_ts_upd));
@@ -627,6 +627,10 @@ ProcessTCPPayload(mtcp_manager_t mtcp, tcp_stream *cur_stream,
 
 			return ERROR;
 		}
+                if (cur_stream->state == TCP_ST_ESTABLISHED) {
+                        /* resume mode */
+                        rcvvar->rcvbuf->head_seq = cur_stream->rcv_nxt;
+                }
 	}
 
 	if (SBUF_LOCK(&rcvvar->read_lock)) {
@@ -634,6 +638,8 @@ ProcessTCPPayload(mtcp_manager_t mtcp, tcp_stream *cur_stream,
 			perror("ProcessTCPPayload: read_lock blocked\n");
 		assert(0);
 	}
+
+	TRACE_ERROR("Packet received: payload_len: %d\n", payloadlen);
 
 	prev_rcv_nxt = cur_stream->rcv_nxt;
 	ret = RBPut(mtcp->rbm_rcv, 
@@ -656,6 +662,9 @@ ProcessTCPPayload(mtcp_manager_t mtcp, tcp_stream *cur_stream,
 
 	if (TCP_SEQ_LEQ(cur_stream->rcv_nxt, prev_rcv_nxt)) {
 		/* There are some lost packets */
+	        TRACE_ERROR("lost packets?: %u prev: %u merged_len: %u\n",
+                        cur_stream->rcv_nxt, prev_rcv_nxt,
+                        rcvvar->rcvbuf->merged_len);
 		return FALSE;
 	}
 
@@ -924,6 +933,7 @@ Handle_TCP_ST_ESTABLISHED (mtcp_manager_t mtcp, uint32_t cur_ts,
 			EnqueueACK(mtcp, cur_stream, cur_ts, ACK_OPT_AGGREGATE);
 		} else {
 			EnqueueACK(mtcp, cur_stream, cur_ts, ACK_OPT_NOW);
+		        TRACE_ERROR("Enqueue Ack NOW\n");
 		}
 	}
 	
