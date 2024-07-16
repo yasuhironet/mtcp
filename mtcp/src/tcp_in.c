@@ -156,8 +156,8 @@ ValidateSequence(mtcp_manager_t mtcp, tcp_stream *cur_stream, uint32_t cur_ts,
 		if (cur_stream->state == TCP_ST_ESTABLISHED) {
 			/* check if it is to get window advertisement */
 			if (seq + 1 == cur_stream->rcv_nxt) {
-#if 0
-				TRACE_DBG("Window update request. (seq: %u, rcv_wnd: %u)\n", 
+#if 1
+				TRACE_ERROR("Window update request. (seq: %u, rcv_wnd: %u)\n", 
 						seq, cur_stream->rcvvar->rcv_wnd);
 #endif
 				EnqueueACK(mtcp, cur_stream, cur_ts, ACK_OPT_AGGREGATE);
@@ -165,11 +165,19 @@ ValidateSequence(mtcp_manager_t mtcp, tcp_stream *cur_stream, uint32_t cur_ts,
 
 			}
 
+#if 0
 			if (TCP_SEQ_LEQ(seq, cur_stream->rcv_nxt)) {
+		        TRACE_ERROR("%s:%d: %s: EnqueueACK\n",
+                                 __FILE__, __LINE__, __func__);
 				EnqueueACK(mtcp, cur_stream, cur_ts, ACK_OPT_AGGREGATE);
 			} else {
+#endif
+		        TRACE_ERROR("%s:%d: %s: EnqueueACK\n",
+                                 __FILE__, __LINE__, __func__);
 				EnqueueACK(mtcp, cur_stream, cur_ts, ACK_OPT_NOW);
+#if 0
 			}
+#endif
 		} else {
 			if (cur_stream->state == TCP_ST_TIME_WAIT) {
 				TRACE_DBG("Stream %d: tw expire update to %u\n", 
@@ -178,7 +186,8 @@ ValidateSequence(mtcp_manager_t mtcp, tcp_stream *cur_stream, uint32_t cur_ts,
 			}
 			AddtoControlList(mtcp, cur_stream, cur_ts);
 		}
-		return FALSE;
+                /* if in resume mode, sequence may become lower one. */
+		//return FALSE;
 	}
 
 	return TRUE;
@@ -639,7 +648,7 @@ ProcessTCPPayload(mtcp_manager_t mtcp, tcp_stream *cur_stream,
 		assert(0);
 	}
 
-	TRACE_ERROR("Packet received: payload_len: %d\n", payloadlen);
+	printf("Packet received: payload_len: %d\n", payloadlen);
 
 	prev_rcv_nxt = cur_stream->rcv_nxt;
 	ret = RBPut(mtcp->rbm_rcv, 
@@ -668,7 +677,7 @@ ProcessTCPPayload(mtcp_manager_t mtcp, tcp_stream *cur_stream,
 		return FALSE;
 	}
 
-	TRACE_EPOLL("Stream %d data arrived. "
+	printf("Stream %d data arrived. "
 			"len: %d, ET: %u, IN: %u, OUT: %u\n", 
 			cur_stream->id, payloadlen, 
 			cur_stream->socket? cur_stream->socket->epoll & MTCP_EPOLLET : 0, 
@@ -930,8 +939,13 @@ Handle_TCP_ST_ESTABLISHED (mtcp_manager_t mtcp, uint32_t cur_ts,
 		if (ProcessTCPPayload(mtcp, cur_stream, 
 				cur_ts, payload, seq, payloadlen)) {
 			/* if return is TRUE, send ACK */
+		        TRACE_ERROR("%s:%d: %s: EnqueueACK\n",
+                                 __FILE__, __LINE__, __func__);
 			EnqueueACK(mtcp, cur_stream, cur_ts, ACK_OPT_AGGREGATE);
+		        TRACE_ERROR("Enqueue Ack AGGREGATE\n");
 		} else {
+		        TRACE_ERROR("%s:%d: %s: EnqueueACK\n",
+                                 __FILE__, __LINE__, __func__);
 			EnqueueACK(mtcp, cur_stream, cur_ts, ACK_OPT_NOW);
 		        TRACE_ERROR("Enqueue Ack NOW\n");
 		}
@@ -956,6 +970,8 @@ Handle_TCP_ST_ESTABLISHED (mtcp_manager_t mtcp, uint32_t cur_ts,
 			/* notify FIN to application */
 			RaiseReadEvent(mtcp, cur_stream);
 		} else {
+		        TRACE_ERROR("%s:%d: %s: EnqueueACK\n",
+                                 __FILE__, __LINE__, __func__);
 			EnqueueACK(mtcp, cur_stream, cur_ts, ACK_OPT_NOW);
 			return;
 		}
@@ -1086,8 +1102,12 @@ Handle_TCP_ST_FIN_WAIT_1 (mtcp_manager_t mtcp, uint32_t cur_ts,
 		if (ProcessTCPPayload(mtcp, cur_stream, 
 				cur_ts, payload, seq, payloadlen)) {
 			/* if return is TRUE, send ACK */
+		        TRACE_ERROR("%s:%d: %s: EnqueueACK\n",
+                                 __FILE__, __LINE__, __func__);
 			EnqueueACK(mtcp, cur_stream, cur_ts, ACK_OPT_AGGREGATE);
 		} else {
+		        TRACE_ERROR("%s:%d: %s: EnqueueACK\n",
+                                 __FILE__, __LINE__, __func__);
 			EnqueueACK(mtcp, cur_stream, cur_ts, ACK_OPT_NOW);
 		}
 	}
@@ -1132,8 +1152,12 @@ Handle_TCP_ST_FIN_WAIT_2 (mtcp_manager_t mtcp, uint32_t cur_ts,
 		if (ProcessTCPPayload(mtcp, cur_stream, 
 				cur_ts, payload, seq, payloadlen)) {
 			/* if return is TRUE, send ACK */
+		        TRACE_ERROR("%s:%d: %s: EnqueueACK\n",
+                                 __FILE__, __LINE__, __func__);
 			EnqueueACK(mtcp, cur_stream, cur_ts, ACK_OPT_AGGREGATE);
 		} else {
+		        TRACE_ERROR("%s:%d: %s: EnqueueACK\n",
+                                 __FILE__, __LINE__, __func__);
 			EnqueueACK(mtcp, cur_stream, cur_ts, ACK_OPT_NOW);
 		}
 	}
@@ -1227,6 +1251,9 @@ ProcessTCPPacket(mtcp_manager_t mtcp,
 	int ret;
 	int rc = -1;
 
+	TRACE_ERROR("%s: tcph->seq %u, ack: %u\n",
+		__func__, seq, ack_seq);
+
 	/* Check ip packet invalidation */	
 	if (ip_len < ((iph->ihl + tcph->doff) << 2))
 		return ERROR;
@@ -1272,14 +1299,14 @@ ProcessTCPPacket(mtcp_manager_t mtcp,
 		ret = ValidateSequence(mtcp, cur_stream, 
 				cur_ts, tcph, seq, ack_seq, payloadlen);
 		if (!ret) {
-			TRACE_DBG("Stream %d: Unexpected sequence: %u, expected: %u\n",
+			TRACE_ERROR("Stream %d: Unexpected sequence: %u, expected: %u\n",
 					cur_stream->id, seq, cur_stream->rcv_nxt);
-#ifdef DBGMSG
+//#ifdef DBGMSG
 			DumpIPPacket(mtcp, iph, ip_len);
-#endif
-#ifdef DUMP_STREAM
+//#endif
+//#ifdef DUMP_STREAM
 			DumpStream(mtcp, cur_stream);
-#endif
+//#endif
 			return TRUE;
 		}
 	}

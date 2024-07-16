@@ -146,6 +146,9 @@ SendTCPPacketStandalone(struct mtcp_manager *mtcp,
 	uint16_t optlen;
 	int rc = -1;
 
+        printf ("%s:%d: %s: enter\n",
+                __FILE__, __LINE__, __func__);
+
 	optlen = CalculateOptionLength(flags);
 	if (payloadlen + optlen > TCP_DEFAULT_MSS) {
 		TRACE_ERROR("Payload size exceeds MSS.\n");
@@ -614,6 +617,9 @@ SendControlPacket(mtcp_manager_t mtcp, tcp_stream *cur_stream, uint32_t cur_ts)
 	struct tcp_send_vars *sndvar = cur_stream->sndvar;
 	int ret = 0;
 
+        printf ("%s:%d: %s: enter\n",
+                __FILE__, __LINE__, __func__);
+
 	if (cur_stream->state == TCP_ST_SYN_SENT) {
 		/* Send SYN here */
 		ret = SendTCPPacket(mtcp, cur_stream, cur_ts, TCP_FLAG_SYN, NULL, 0);
@@ -626,6 +632,8 @@ SendControlPacket(mtcp_manager_t mtcp, tcp_stream *cur_stream, uint32_t cur_ts)
 
 	} else if (cur_stream->state == TCP_ST_ESTABLISHED) {
 		/* Send ACK here */
+        printf ("%s:%d: %s: Send ACK here\n",
+                __FILE__, __LINE__, __func__);
 		ret = SendTCPPacket(mtcp, cur_stream, cur_ts, TCP_FLAG_ACK, NULL, 0);
 
 	} else if (cur_stream->state == TCP_ST_CLOSE_WAIT) {
@@ -849,6 +857,9 @@ WriteTCPACKList(mtcp_manager_t mtcp,
 	int cnt = 0;
 	int ret;
 
+        printf ("%s:%d: %s: enter.\n",
+                __FILE__, __LINE__, __func__);
+
 	/* Send aggregated acks */
 	cnt = 0;
 	cur_stream = TAILQ_FIRST(&sender->ack_list);
@@ -857,7 +868,7 @@ WriteTCPACKList(mtcp_manager_t mtcp,
 		if (++cnt > thresh)
 			break;
 
-		TRACE_LOOP("Inside ack loop. cnt: %u\n", cnt);
+		printf("Inside ack loop. cnt: %u\n", cnt);
 		next = TAILQ_NEXT(cur_stream, sndvar->ack_link);
 
 		if (cur_stream->sndvar->on_ack_list) {
@@ -872,14 +883,23 @@ WriteTCPACKList(mtcp_manager_t mtcp,
 				/* TIMEWAIT is possible since the ack is queued 
 				   at FIN_WAIT_2 */
 				if (cur_stream->rcvvar->rcvbuf) {
+#if 0
 					if (TCP_SEQ_LEQ(cur_stream->rcv_nxt, 
 								cur_stream->rcvvar->rcvbuf->head_seq + 
 								cur_stream->rcvvar->rcvbuf->merged_len)) {
 						to_ack = TRUE;
 					}
+#else
+						to_ack = TRUE;
+#endif
 				}
+                                else {
+                                        printf ("%s:%d: %s: no rcvbuf.\n",
+                                                __FILE__, __LINE__, __func__);
+						to_ack = TRUE;
+                                }
 			} else {
-				TRACE_DBG("Stream %u (%s): "
+				printf("Stream %u (%s): "
 						"Try sending ack at not proper state. "
 						"seq: %u, ack_seq: %u, on_control_list: %u\n", 
 						cur_stream->id, TCPStateToString(cur_stream), 
@@ -919,6 +939,8 @@ WriteTCPACKList(mtcp_manager_t mtcp,
 					sender->ack_list_cnt--;
 				}
 			} else {
+                                printf ("%s:%d: %s: not to_ack\n",
+                                        __FILE__, __LINE__, __func__);
 				cur_stream->sndvar->on_ack_list = FALSE;
 				cur_stream->sndvar->ack_cnt = 0;
 				cur_stream->sndvar->is_wack = 0;
@@ -933,7 +955,7 @@ WriteTCPACKList(mtcp_manager_t mtcp,
 				}
 			}
 		} else {
-			TRACE_ERROR("Stream %d: not on ack list.\n", cur_stream->id);
+			printf("Stream %d: not on ack list.\n", cur_stream->id);
 			TAILQ_REMOVE(&sender->ack_list, cur_stream, sndvar->ack_link);
 			sender->ack_list_cnt--;
 #ifdef DUMP_STREAM
@@ -1085,6 +1107,9 @@ inline void
 EnqueueACK(mtcp_manager_t mtcp, 
 		tcp_stream *cur_stream, uint32_t cur_ts, uint8_t opt)
 {
+	TRACE_ERROR("Stream %u: Enqueueing ack at state %s\n", 
+			cur_stream->id, TCPStateToString(cur_stream));
+
 	if (!(cur_stream->state == TCP_ST_ESTABLISHED || 
 			cur_stream->state == TCP_ST_CLOSE_WAIT || 
 			cur_stream->state == TCP_ST_FIN_WAIT_1 || 

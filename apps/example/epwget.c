@@ -705,9 +705,11 @@ HandleReadEvent(thread_context_t ctx, int sockid, struct wget_vars *wv)
 		}
 #endif
 
+#if 1
                 if (wv->recv > 1000000) {
                         offline_pause (ctx, sockid, wv);
                 }
+#endif
 	}
 
 	if (rd > 0) {
