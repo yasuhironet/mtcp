@@ -62,9 +62,15 @@
 
 #ifdef INFO                       
 
+#if 0
 #define TRACE_INFO(f, m...) {                                         \
 	fprintf(stderr, "[%10s:%4d] " f,__FUNCTION__, __LINE__, ##m);    \
     }
+#else
+#define TRACE_INFO(f, m...) {                                         \
+	fprintf(stderr, "[INFO] " f, ##m);    \
+    }
+#endif
 
 #else
 

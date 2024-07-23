@@ -648,8 +648,6 @@ ProcessTCPPayload(mtcp_manager_t mtcp, tcp_stream *cur_stream,
 		assert(0);
 	}
 
-	printf("Packet received: payload_len: %d\n", payloadlen);
-
 	prev_rcv_nxt = cur_stream->rcv_nxt;
 	ret = RBPut(mtcp->rbm_rcv, 
 			rcvvar->rcvbuf, payload, (uint32_t)payloadlen, seq);
@@ -671,13 +669,13 @@ ProcessTCPPayload(mtcp_manager_t mtcp, tcp_stream *cur_stream,
 
 	if (TCP_SEQ_LEQ(cur_stream->rcv_nxt, prev_rcv_nxt)) {
 		/* There are some lost packets */
-	        TRACE_ERROR("lost packets?: %u prev: %u merged_len: %u\n",
+	        TRACE_INFO("lost packets?: %u prev: %u merged_len: %u\n",
                         cur_stream->rcv_nxt, prev_rcv_nxt,
                         rcvvar->rcvbuf->merged_len);
 		return FALSE;
 	}
 
-	printf("Stream %d data arrived. "
+	TRACE_INFO("Stream %d data arrived. "
 			"len: %d, ET: %u, IN: %u, OUT: %u\n", 
 			cur_stream->id, payloadlen, 
 			cur_stream->socket? cur_stream->socket->epoll & MTCP_EPOLLET : 0, 
@@ -939,15 +937,9 @@ Handle_TCP_ST_ESTABLISHED (mtcp_manager_t mtcp, uint32_t cur_ts,
 		if (ProcessTCPPayload(mtcp, cur_stream, 
 				cur_ts, payload, seq, payloadlen)) {
 			/* if return is TRUE, send ACK */
-		        TRACE_ERROR("%s:%d: %s: EnqueueACK\n",
-                                 __FILE__, __LINE__, __func__);
 			EnqueueACK(mtcp, cur_stream, cur_ts, ACK_OPT_AGGREGATE);
-		        TRACE_ERROR("Enqueue Ack AGGREGATE\n");
 		} else {
-		        TRACE_ERROR("%s:%d: %s: EnqueueACK\n",
-                                 __FILE__, __LINE__, __func__);
 			EnqueueACK(mtcp, cur_stream, cur_ts, ACK_OPT_NOW);
-		        TRACE_ERROR("Enqueue Ack NOW\n");
 		}
 	}
 	
@@ -1102,12 +1094,8 @@ Handle_TCP_ST_FIN_WAIT_1 (mtcp_manager_t mtcp, uint32_t cur_ts,
 		if (ProcessTCPPayload(mtcp, cur_stream, 
 				cur_ts, payload, seq, payloadlen)) {
 			/* if return is TRUE, send ACK */
-		        TRACE_ERROR("%s:%d: %s: EnqueueACK\n",
-                                 __FILE__, __LINE__, __func__);
 			EnqueueACK(mtcp, cur_stream, cur_ts, ACK_OPT_AGGREGATE);
 		} else {
-		        TRACE_ERROR("%s:%d: %s: EnqueueACK\n",
-                                 __FILE__, __LINE__, __func__);
 			EnqueueACK(mtcp, cur_stream, cur_ts, ACK_OPT_NOW);
 		}
 	}
@@ -1152,12 +1140,8 @@ Handle_TCP_ST_FIN_WAIT_2 (mtcp_manager_t mtcp, uint32_t cur_ts,
 		if (ProcessTCPPayload(mtcp, cur_stream, 
 				cur_ts, payload, seq, payloadlen)) {
 			/* if return is TRUE, send ACK */
-		        TRACE_ERROR("%s:%d: %s: EnqueueACK\n",
-                                 __FILE__, __LINE__, __func__);
 			EnqueueACK(mtcp, cur_stream, cur_ts, ACK_OPT_AGGREGATE);
 		} else {
-		        TRACE_ERROR("%s:%d: %s: EnqueueACK\n",
-                                 __FILE__, __LINE__, __func__);
 			EnqueueACK(mtcp, cur_stream, cur_ts, ACK_OPT_NOW);
 		}
 	}
@@ -1251,8 +1235,8 @@ ProcessTCPPacket(mtcp_manager_t mtcp,
 	int ret;
 	int rc = -1;
 
-	TRACE_ERROR("%s: tcph->seq %u, ack: %u\n",
-		__func__, seq, ack_seq);
+	TRACE_INFO("Receive TCP Packet: tcph->seq %u, ack: %u, len: %d\n",
+		seq, ack_seq, payloadlen);
 
 	/* Check ip packet invalidation */	
 	if (ip_len < ((iph->ihl + tcph->doff) << 2))
@@ -1288,11 +1272,16 @@ ProcessTCPPacket(mtcp_manager_t mtcp,
 
 	if (!(cur_stream = StreamHTSearch(mtcp->tcp_flow_table, &s_stream))) {
 		/* not found in flow table */
+                TRACE_INFO ("stream not found in flow table.\n");
 		cur_stream = CreateNewFlowHTEntry(mtcp, cur_ts, iph, ip_len, tcph, 
 				seq, ack_seq, payloadlen, window);
+                TRACE_INFO ("cannot create stream in flow table.\n");
 		if (!cur_stream)
 			return TRUE;
 	}
+
+        TRACE_INFO ("rel seq: %u len %u\n",
+                    seq - cur_stream->rcvvar->irs, payloadlen);
 
 	/* Validate sequence. if not valid, ignore the packet */
 	if (cur_stream->state > TCP_ST_SYN_RCVD) {

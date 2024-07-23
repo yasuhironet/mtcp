@@ -294,10 +294,6 @@ RBPut(rb_manager_t rbm, struct tcp_ring_buffer* buff,
 	struct fragment_ctx* prev, *pprev;
 	int merged = 0;
 
-        printf ("%s:%d: %s: rbuff: %p payload_len: %u cur_seq: %u\n",
-                __FILE__, __LINE__, __func__,
-                buff, len, cur_seq);
-
 	if (len <= 0)
 		return 0;
 
@@ -322,8 +318,6 @@ RBPut(rb_manager_t rbm, struct tcp_ring_buffer* buff,
 		buff->head_offset = 0;
 		buff->head = buff->data;
 
-        printf ("%s:%d: %s: rbuff: %p reset\n",
-                __FILE__, __LINE__, __func__, buff);
 	}
 #ifdef ENABLELRO
 	// copy data to buffer
@@ -331,9 +325,6 @@ RBPut(rb_manager_t rbm, struct tcp_ring_buffer* buff,
 #else
 	//copy data to buffer
 	memcpy(buff->head + putx, data, len);
-
-        printf ("%s:%d: %s: rbuff: %p copy: %u\n",
-                __FILE__, __LINE__, __func__, buff, len);
 #endif
 	if (buff->tail_offset < buff->head_offset + end_off) 
 		buff->tail_offset = buff->head_offset + end_off;
@@ -398,10 +389,6 @@ RBPut(rb_manager_t rbm, struct tcp_ring_buffer* buff,
 		buff->cum_len += buff->fctx->len - buff->merged_len;
 		buff->merged_len = buff->fctx->len;
 	}
-
-        printf ("%s:%d: %s: rbuff: %p merge: %d merged_len: %u\n",
-                __FILE__, __LINE__, __func__, buff,
-                merged, buff->merged_len);
 
 	return len;
 }

@@ -350,14 +350,14 @@ offline_open ()
   if (offline_sockfd < 0)
     {
       is_offline_resume = 0;
-      printf ("open offline.save failed. pause mode.\n");
+      TRACE_INFO ("open offline.save failed. pause mode.\n");
       offline_sockfd = open (offline_filename, O_RDWR | O_CREAT | O_TRUNC, 0644);
       assert (offline_sockfd >= 0);
     }
   else
     {
       is_offline_resume = 1;
-      printf ("open offline.save succeeded. resume mode.\n");
+      TRACE_INFO ("open offline.save succeeded. resume mode.\n");
     }
 }
 
@@ -366,27 +366,27 @@ print_ring_buffer_state (struct tcp_ring_buffer *buff)
 {
   if (! buff)
     {
-      printf ("buff null.\n");
+      TRACE_INFO ("buff null.\n");
       return;
     }
 
-  printf ("buff->head_offset: %u\n", buff->head_offset);
-  printf ("buff->tail_offset: %u\n", buff->tail_offset);
-  printf ("buff->merged_len: %d\n", buff->merged_len);
-  printf ("buff->cum_len: %lu\n", buff->cum_len);
-  printf ("buff->last_len: %d\n", buff->last_len);
-  printf ("buff->size: %d\n", buff->size);
-  printf ("buff->head_seq: %u\n", buff->head_seq);
-  printf ("buff->init_seq: %u\n", buff->init_seq);
+  TRACE_INFO ("buff->head_offset: %u\n", buff->head_offset);
+  TRACE_INFO ("buff->tail_offset: %u\n", buff->tail_offset);
+  TRACE_INFO ("buff->merged_len: %d\n", buff->merged_len);
+  TRACE_INFO ("buff->cum_len: %lu\n", buff->cum_len);
+  TRACE_INFO ("buff->last_len: %d\n", buff->last_len);
+  TRACE_INFO ("buff->size: %d\n", buff->size);
+  TRACE_INFO ("buff->head_seq: %u\n", buff->head_seq);
+  TRACE_INFO ("buff->init_seq: %u\n", buff->init_seq);
 }
 
 int
 offline_pause (thread_context_t ctx, int sockid, struct wget_vars *wv)
 {
-  printf ("%s:%d: %s: enter\n", __FILE__, __LINE__, __func__);
-  printf ("%s: pausing at the status of %lu bytes received.\n",
-          __func__, wv->recv);
-  printf ("%s: shutting down.\n", __func__);
+  TRACE_INFO ("%s:%d: %s: enter\n", __FILE__, __LINE__, __func__);
+  TRACE_INFO ("%s: pausing at the status of %lu bytes received.\n",
+              __func__, wv->recv);
+  TRACE_INFO ("%s: shutting down.\n", __func__);
 
   if (fio && wv->fd > 0)
     {
@@ -461,8 +461,8 @@ offline_pause (thread_context_t ctx, int sockid, struct wget_vars *wv)
 int
 offline_resume (thread_context_t ctx, int sockid, struct wget_vars *wv)
 {
-  printf ("%s:%d: %s: enter\n", __FILE__, __LINE__, __func__);
-  printf ("%s: resume, loading from file: %s.\n", __func__,
+  TRACE_INFO ("%s:%d: %s: enter\n", __FILE__, __LINE__, __func__);
+  TRACE_INFO ("%s: resume, loading from file: %s.\n", __func__,
           offline_filename);
 
   mtcp_manager_t mtcp;
@@ -574,23 +574,23 @@ offline_resume (thread_context_t ctx, int sockid, struct wget_vars *wv)
   stream->sndvar->is_fin_sent = sndvar.is_fin_sent;
   stream->sndvar->is_fin_ackd = sndvar.is_fin_ackd;
 
-  printf ("stream->rcvvar->rcv_wnd: %u\n", stream->rcvvar->rcv_wnd);
-  printf ("stream->rcvvar->irs: %u\n", stream->rcvvar->irs);
-  printf ("stream->rcvvar->snd_wl1: %u\n", stream->rcvvar->snd_wl1);
-  printf ("stream->rcvvar->snd_wl2: %u\n", stream->rcvvar->snd_wl2);
-  printf ("stream->rcvvar->last_ack_seq: %u\n", stream->rcvvar->last_ack_seq);
+  TRACE_INFO ("stream->rcvvar->rcv_wnd: %u\n", stream->rcvvar->rcv_wnd);
+  TRACE_INFO ("stream->rcvvar->irs: %u\n", stream->rcvvar->irs);
+  TRACE_INFO ("stream->rcvvar->snd_wl1: %u\n", stream->rcvvar->snd_wl1);
+  TRACE_INFO ("stream->rcvvar->snd_wl2: %u\n", stream->rcvvar->snd_wl2);
+  TRACE_INFO ("stream->rcvvar->last_ack_seq: %u\n", stream->rcvvar->last_ack_seq);
 
-  printf ("stream->sndvar->cwnd: %u\n", stream->sndvar->cwnd);
-  printf ("stream->sndvar->ssthresh: %u\n", stream->sndvar->ssthresh);
+  TRACE_INFO ("stream->sndvar->cwnd: %u\n", stream->sndvar->cwnd);
+  TRACE_INFO ("stream->sndvar->ssthresh: %u\n", stream->sndvar->ssthresh);
 
-  printf ("stream->sndvar->mss: %u\n", stream->sndvar->mss);
-  printf ("stream->sndvar->eff_mss: %u\n", stream->sndvar->eff_mss);
+  TRACE_INFO ("stream->sndvar->mss: %u\n", stream->sndvar->mss);
+  TRACE_INFO ("stream->sndvar->eff_mss: %u\n", stream->sndvar->eff_mss);
 
-  printf ("wv->request_sent: %d\n", wv->request_sent);
+  TRACE_INFO ("wv->request_sent: %d\n", wv->request_sent);
 
-  printf ("stream->state: %d\n", stream->state);
-  printf ("stream->snd_nxt: %u\n", stream->snd_nxt);
-  printf ("stream->rcv_nxt: %u\n", stream->rcv_nxt);
+  TRACE_INFO ("stream->state: %d\n", stream->state);
+  TRACE_INFO ("stream->snd_nxt: %u\n", stream->snd_nxt);
+  TRACE_INFO ("stream->rcv_nxt: %u\n", stream->rcv_nxt);
 
   printf ("rcvbuf:\n");
   print_ring_buffer_state (stream->rcvvar->rcvbuf);
@@ -695,7 +695,7 @@ HandleReadEvent(thread_context_t ctx, int sockid, struct wget_vars *wv)
                                  ctx->stat.file_writes += _wr;
 				 wr += _wr;	
 				 wv->write += _wr;
-				TRACE_APP("write[%lu]: +%d = %d / %d bytes (%lu / %lu) (file: %lu bytes)\n", ctx->stat.file_write_count, _wr, wr, rd, ctx->stat.file_writes, ctx->stat.reads, wv->file_len);
+				TRACE_INFO("write[%lu]: +%d = %d / %d bytes (%lu / %lu) (file: %lu bytes)\n", ctx->stat.file_write_count, _wr, wr, rd, ctx->stat.file_writes, ctx->stat.reads, wv->file_len);
 			}
 		}
 		
