@@ -70,6 +70,7 @@ uint32_t RBIsDanger(rb_manager_t rbm);
 /* data manupulation functions */
 int RBPut(rb_manager_t rbm, struct tcp_ring_buffer* buff, 
 					void* data, uint32_t len , uint32_t seq);
+void RBPrint(rb_manager_t rbm, struct tcp_ring_buffer* buff);
 size_t RBGet(rb_manager_t rbm, struct tcp_ring_buffer* buff, size_t len);
 size_t RBRemove(rb_manager_t rbm, struct tcp_ring_buffer* buff, 
 					size_t len, int option);

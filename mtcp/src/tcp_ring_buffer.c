@@ -392,6 +392,32 @@ RBPut(rb_manager_t rbm, struct tcp_ring_buffer* buff,
 
 	return len;
 }
+
+void
+RBPrint(rb_manager_t rbm, struct tcp_ring_buffer* buff)
+{
+	struct fragment_ctx* iter;
+
+        fprintf (stderr,
+                 //"%s:%d: %s: "
+                 "ringbuf: %p head_seq: %u size: %d head_offset: %d tail_offset: %d last_len: %d cum_len: %lu merged_len: %d\n",
+                 //__FILE__, __LINE__, __func__,
+                 buff, buff->head_seq, buff->size, buff->head_offset,
+                 buff->tail_offset, buff->last_len,
+                 buff->cum_len, buff->merged_len);
+
+	// traverse the fragment list, and merge the new fragment if possible
+	for (iter = buff->fctx; iter != NULL; iter = iter->next) {
+                fprintf (stderr,
+                         //"%s:%d: %s: "
+                         "ringbuf: %p iter: %p "
+                         "seq %u len %d next: %p\n",
+                 //__FILE__, __LINE__, __func__,
+                 buff, iter, iter->seq,
+                 iter->len, iter->next);
+	}
+}
+
 /*----------------------------------------------------------------------------*/
 size_t
 RBRemove(rb_manager_t rbm, struct tcp_ring_buffer* buff, size_t len, int option)

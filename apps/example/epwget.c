@@ -26,8 +26,11 @@
 #include "debug.h"
 
 #include "tcp_stream.h"
+#include "tcp_out.h"
+#include "tcp_in.h"
 
 uint8_t is_offline_resume = 0;
+uint8_t offline_resumed = 0;
 int offline_sockfd = -1;
 char *offline_filename = "offline.save";
 
@@ -179,6 +182,8 @@ DestroyContext(thread_context_t ctx)
 	free(ctx);
 }
 /*----------------------------------------------------------------------------*/
+int
+offline_resume (thread_context_t ctx, int sockid, struct wget_vars *wv);
 static inline int 
 CreateConnection(thread_context_t ctx)
 {
@@ -199,26 +204,32 @@ CreateConnection(thread_context_t ctx)
 		TRACE_ERROR("Failed to set socket in nonblocking mode.\n");
 		exit(-1);
 	}
+        fprintf (stderr, "wvars: %p cleared.\n",
+                 &ctx->wvars[sockid]);
 
 	addr.sin_family = AF_INET;
 	addr.sin_addr.s_addr = daddr;
 	addr.sin_port = dport;
-	
-        if (is_offline_resume) {
-	ret = mtcp_reconnect(mctx, sockid, 
-			(struct sockaddr *)&addr, sizeof(struct sockaddr_in));
-        assert (ret >= 0);
-        } else {
-	ret = mtcp_connect(mctx, sockid, 
-			(struct sockaddr *)&addr, sizeof(struct sockaddr_in));
-	if (ret < 0) {
-		if (errno != EINPROGRESS) {
-			perror("mtcp_connect");
-			mtcp_close(mctx, sockid);
-			return -1;
+
+	if (is_offline_resume) {
+		ret = mtcp_reconnect(mctx, sockid,
+				(struct sockaddr *)&addr,
+				sizeof(struct sockaddr_in));
+		assert (ret >= 0);
+		offline_resume (ctx, sockid, &ctx->wvars[sockid]);
+		is_offline_resume = 0;
+	} else {
+		ret = mtcp_connect(mctx, sockid,
+				(struct sockaddr *)&addr,
+				sizeof(struct sockaddr_in));
+		if (ret < 0) {
+			if (errno != EINPROGRESS) {
+				perror("mtcp_connect");
+				mtcp_close(mctx, sockid);
+				return -1;
+			}
 		}
 	}
-        }
 
 	ctx->started++;
 	ctx->pending++;
@@ -343,21 +354,76 @@ struct stream_save {
   uint32_t rcv_nxt;               /* receive next */
 };
 
+struct stream_save stream_save = { 0 };
+struct tcp_recv_vars rcvvar;
+struct tcp_send_vars sndvar;
+struct wget_vars wgetvar;
+
+int
+offline_open_file_resume ()
+{
+
+  int ret;
+
+  ret = read (offline_sockfd,
+               &stream_save, sizeof (struct stream_save));
+
+  if (ret != sizeof (struct stream_save))
+    return -1;
+
+  ret = read (offline_sockfd,
+              &wgetvar, sizeof (struct wget_vars));
+
+  if (ret != sizeof (struct wget_vars))
+    return -1;
+
+  ret = read (offline_sockfd,
+              &rcvvar, sizeof (struct tcp_recv_vars));
+  if (ret != sizeof (struct tcp_recv_vars))
+    return -1;
+
+  ret = read (offline_sockfd,
+              &sndvar, sizeof (struct tcp_send_vars));
+  if (ret != sizeof (struct tcp_send_vars))
+    return -1;
+
+  return 0;
+}
+
 void
 offline_open ()
 {
+  int ret;
+
+  fprintf (stderr, "%s: enter.\n", __func__);
+  TRACE_INFO ("%s: enter.\n", __func__);
+
+  is_offline_resume = 0;
+
   offline_sockfd = open (offline_filename, O_RDONLY, 0644);
-  if (offline_sockfd < 0)
+  if (offline_sockfd >= 0)
     {
-      is_offline_resume = 0;
-      TRACE_INFO ("open offline.save failed. pause mode.\n");
-      offline_sockfd = open (offline_filename, O_RDWR | O_CREAT | O_TRUNC, 0644);
-      assert (offline_sockfd >= 0);
+      ret = offline_open_file_resume ();
+      if (ret < 0)
+        {
+          TRACE_INFO ("reading offline.save failed. back to pause mode.\n");
+        }
+      else
+        {
+          is_offline_resume = 1;
+          TRACE_INFO ("open offline.save succeeded. resume mode.\n");
+        }
+      close (offline_sockfd);
+      unlink (offline_filename);
+      offline_sockfd = -1;
     }
-  else
+
+  if (! is_offline_resume)
     {
-      is_offline_resume = 1;
-      TRACE_INFO ("open offline.save succeeded. resume mode.\n");
+      TRACE_INFO ("pause mode. create file: %s\n", offline_filename);
+      offline_sockfd = open (offline_filename, O_RDWR | O_CREAT | O_TRUNC,
+                             0644);
+      assert (offline_sockfd >= 0);
     }
 }
 
@@ -366,27 +432,27 @@ print_ring_buffer_state (struct tcp_ring_buffer *buff)
 {
   if (! buff)
     {
-      TRACE_INFO ("buff null.\n");
+      fprintf (stderr, "buff null.\n");
       return;
     }
 
-  TRACE_INFO ("buff->head_offset: %u\n", buff->head_offset);
-  TRACE_INFO ("buff->tail_offset: %u\n", buff->tail_offset);
-  TRACE_INFO ("buff->merged_len: %d\n", buff->merged_len);
-  TRACE_INFO ("buff->cum_len: %lu\n", buff->cum_len);
-  TRACE_INFO ("buff->last_len: %d\n", buff->last_len);
-  TRACE_INFO ("buff->size: %d\n", buff->size);
-  TRACE_INFO ("buff->head_seq: %u\n", buff->head_seq);
-  TRACE_INFO ("buff->init_seq: %u\n", buff->init_seq);
+  fprintf (stderr, "buff->head_offset: %u\n", buff->head_offset);
+  fprintf (stderr, "buff->tail_offset: %u\n", buff->tail_offset);
+  fprintf (stderr, "buff->merged_len: %d\n", buff->merged_len);
+  fprintf (stderr, "buff->cum_len: %lu\n", buff->cum_len);
+  fprintf (stderr, "buff->last_len: %d\n", buff->last_len);
+  fprintf (stderr, "buff->size: %d\n", buff->size);
+  fprintf (stderr, "buff->head_seq: %u\n", buff->head_seq);
+  fprintf (stderr, "buff->init_seq: %u\n", buff->init_seq);
 }
 
 int
 offline_pause (thread_context_t ctx, int sockid, struct wget_vars *wv)
 {
-  TRACE_INFO ("%s:%d: %s: enter\n", __FILE__, __LINE__, __func__);
-  TRACE_INFO ("%s: pausing at the status of %lu bytes received.\n",
-              __func__, wv->recv);
-  TRACE_INFO ("%s: shutting down.\n", __func__);
+  fprintf (stderr, "%s:%d: %s: enter\n", __FILE__, __LINE__, __func__);
+  fprintf (stderr, "%s: pausing at the status of %lu bytes received.\n",
+           __func__, wv->recv);
+  fprintf (stderr, "%s: shutting down.\n", __func__);
 
   if (fio && wv->fd > 0)
     {
@@ -461,18 +527,28 @@ offline_pause (thread_context_t ctx, int sockid, struct wget_vars *wv)
 int
 offline_resume (thread_context_t ctx, int sockid, struct wget_vars *wv)
 {
-  TRACE_INFO ("%s:%d: %s: enter\n", __FILE__, __LINE__, __func__);
-  TRACE_INFO ("%s: resume, loading from file: %s.\n", __func__,
+  offline_resumed++;
+
+  fprintf (stderr, "%s:%d: %s: enter\n", __FILE__, __LINE__, __func__);
+  fprintf (stderr, "%s: resume, loading from file: %s.\n", __func__,
           offline_filename);
 
   mtcp_manager_t mtcp;
   socket_map_t socket;
   tcp_stream *stream;
 
-  struct tcp_recv_vars rcvvar;
-  struct tcp_send_vars sndvar;
-  struct wget_vars wgetvar;
-  struct stream_save stream_save = { 0 };
+  wv->headerset = wgetvar.headerset;
+  wv->header_len = wgetvar.header_len;
+  wv->file_len = wgetvar.file_len;
+  wv->recv = wgetvar.recv;
+  wv->write = wgetvar.write;
+  wv->request_sent = wgetvar.request_sent;
+  fprintf (stderr, "%s: wv->headerset: %d wv->header_len: %d wv->file_len: %lu "
+           "wv->recv: %lu wv->write: %lu (running wv: %p <- saved: %p)\n",
+           __func__, wv->headerset, wv->header_len, wv->file_len,
+           wv->recv, wv->write, wv, &wgetvar);
+
+  TRACE_INFO ("wv->request_sent: %d\n", wv->request_sent);
 
   mtcp = GetMTCPManager(ctx->mctx);
   assert (mtcp);
@@ -482,27 +558,6 @@ offline_resume (thread_context_t ctx, int sockid, struct wget_vars *wv)
 
   stream = socket->stream;
   assert (stream);
-  assert (offline_sockfd >= 0);
-
-  int ret;
-
-  ret = read (offline_sockfd,
-               &stream_save, sizeof (struct stream_save));
-  assert (ret == sizeof (struct stream_save));
-
-  ret = read (offline_sockfd,
-              &wgetvar, sizeof (struct wget_vars));
-  assert (ret == sizeof (struct wget_vars));
-
-  ret = read (offline_sockfd,
-              &rcvvar, sizeof (struct tcp_recv_vars));
-  assert (ret == sizeof (struct tcp_recv_vars));
-
-  ret = read (offline_sockfd,
-              &sndvar, sizeof (struct tcp_send_vars));
-  assert (ret == sizeof (struct tcp_send_vars));
-
-  close (offline_sockfd);
 
   stream->state = stream_save.state;
   stream->snd_nxt = stream_save.snd_nxt;
@@ -586,8 +641,6 @@ offline_resume (thread_context_t ctx, int sockid, struct wget_vars *wv)
   TRACE_INFO ("stream->sndvar->mss: %u\n", stream->sndvar->mss);
   TRACE_INFO ("stream->sndvar->eff_mss: %u\n", stream->sndvar->eff_mss);
 
-  TRACE_INFO ("wv->request_sent: %d\n", wv->request_sent);
-
   TRACE_INFO ("stream->state: %d\n", stream->state);
   TRACE_INFO ("stream->snd_nxt: %u\n", stream->snd_nxt);
   TRACE_INFO ("stream->rcv_nxt: %u\n", stream->rcv_nxt);
@@ -604,6 +657,21 @@ offline_resume (thread_context_t ctx, int sockid, struct wget_vars *wv)
 	assert (wv->fd >= 0);
   }
 
+  struct timeval cur_ts = { 0 };
+  uint32_t ts;
+  gettimeofday(&cur_ts, NULL);
+  ts = TIMEVAL_TO_TS(&cur_ts);
+  mtcp->cur_ts = ts;
+#if 0
+  /* resume at sending the last ack. */
+  SendTCPPacketStandalone(mtcp, 
+      iph->daddr, tcph->dest, iph->saddr, tcph->source, 
+      0, seq + payloadlen + 1, 0, TCP_FLAG_RST | TCP_FLAG_ACK, 
+      NULL, 0, cur_ts, 0);
+#else
+  EnqueueACK(mtcp, stream, ts, ACK_OPT_NOW);
+#endif
+
   return 0;
 }
 
@@ -617,6 +685,10 @@ HandleReadEvent(thread_context_t ctx, int sockid, struct wget_vars *wv)
 	char *pbuf;
 	int rd, copy_len;
 
+                fprintf (stderr,
+                         "%s:%d: %s: wv: %p wv->header_len: %d wv->headerset: %d\n",
+                         __FILE__, __LINE__, __func__, wv, wv->header_len, wv->headerset);
+
 	rd = 1;
 	while (rd > 0) {
 		rd = mtcp_read(mctx, sockid, buf, BUF_SIZE);
@@ -625,10 +697,14 @@ HandleReadEvent(thread_context_t ctx, int sockid, struct wget_vars *wv)
 		ctx->stat.reads += rd;
 		ctx->stat.read_count++;
 
-		TRACE_APP("read[%lu]: Socket %d: mtcp_read ret: %d, total_recv: %lu, "
+		fprintf(stderr, "read[%lu]: Socket %d: mtcp_read ret: %d, total_recv: %lu, "
 				"header_set: %d, header_len: %u, file_len: %lu\n",
 				ctx->stat.read_count, sockid, rd, wv->recv + rd,
 				wv->headerset, wv->header_len, wv->file_len);
+
+                fprintf (stderr,
+                         "%s:%d %s: wv: %p wv->header_len: %d wv->headerset: %d\n",
+                         __FILE__, __LINE__, __func__, wv, wv->header_len, wv->headerset);
 
 		pbuf = buf;
 		if (!wv->headerset) {
@@ -648,7 +724,7 @@ HandleReadEvent(thread_context_t ctx, int sockid, struct wget_vars *wv)
 					return 0;
 				}
 
-				TRACE_APP("Socket %d Parsed response header. "
+				TRACE_INFO("Socket %d Parsed response header. "
 						"Header length: %u, File length: %lu (%luMB)\n", 
 						sockid, wv->header_len, 
 						wv->file_len, wv->file_len / 1024 / 1024);
@@ -662,11 +738,12 @@ HandleReadEvent(thread_context_t ctx, int sockid, struct wget_vars *wv)
 
 			} else {
 				/* failed to parse response header */
-#if 0
-				TRACE_APP("[CPU %d] Socket %d Failed to parse response header."
+#if 1
+				TRACE_INFO("[CPU %d] Socket %d Failed to parse response header."
 						" Data: \n%s\n", ctx->core, sockid, wv->response);
 				fflush(stdout);
 #endif
+                                fprintf (stderr, "failed to parse response header: wv->header_len: %d wv->headerset: %d\n", wv->header_len, wv->headerset);
 				wv->recv += rd;
 				rd = 0;
 				ctx->stat.errors++;
@@ -706,7 +783,7 @@ HandleReadEvent(thread_context_t ctx, int sockid, struct wget_vars *wv)
 #endif
 
 #if 1
-                if (wv->recv > 1000000) {
+                if (!offline_resumed && wv->recv > 16000000) {
                         offline_pause (ctx, sockid, wv);
                 }
 #endif
@@ -737,7 +814,7 @@ HandleReadEvent(thread_context_t ctx, int sockid, struct wget_vars *wv)
 
 	} else if (rd < 0) {
 		if (errno != EAGAIN) {
-			TRACE_DBG("Socket %d: mtcp_read() error %s\n", 
+			TRACE_INFO("Socket %d: mtcp_read() error %s\n", 
 					sockid, strerror(errno));
 			ctx->stat.errors++;
 			ctx->errors++;
@@ -897,6 +974,7 @@ RunWgetMain(void *arg)
 		exit(EXIT_FAILURE);
 	}
 	ctx->wvars = wvars;
+        fprintf (stderr, "wvars: created: %p\n", wvars);
 
 	ctx->started = ctx->done = ctx->pending = 0;
 	ctx->errors = ctx->incompletes = 0;
@@ -943,7 +1021,7 @@ RunWgetMain(void *arg)
 				int err;
 				socklen_t len = sizeof(err);
 
-				TRACE_APP("[CPU %d] Error on socket %d\n", 
+				TRACE_INFO("[CPU %d] Error on socket %d\n", 
 						core, events[i].data.sockid);
 				ctx->stat.errors++;
 				ctx->errors++;
@@ -961,8 +1039,16 @@ RunWgetMain(void *arg)
                                         is_offline_resume = 0;
                                 }
 
+			fprintf(stdout, "[CPU %d] Before: handleread: %d connections, "
+					"errors: %d incompletes: %d\n", 
+					ctx->core, ctx->done, ctx->errors, ctx->incompletes);
+
 				HandleReadEvent(ctx, 
 						events[i].data.sockid, &wvars[events[i].data.sockid]);
+
+			fprintf(stdout, "[CPU %d] After: handleread: %d connections, "
+					"errors: %d incompletes: %d\n", 
+					ctx->core, ctx->done, ctx->errors, ctx->incompletes);
 
 			} else if (events[i].events == MTCP_EPOLLOUT) {
 
@@ -972,6 +1058,9 @@ RunWgetMain(void *arg)
                                 }
 
 				struct wget_vars *wv = &wvars[events[i].data.sockid];
+
+        fprintf (stderr, "%s:%d: %s: EPOLLOUT: wvars: %p wv->headerset: %d wv->header_len: %d wv->file_len: %lu wv->request_sent: %d\n",
+                 __FILE__, __LINE__, __func__, wv, wv->headerset, wv->header_len, wv->file_len, wv->request_sent);
 
 				if (!wv->request_sent) {
 					SendHTTPRequest(ctx, events[i].data.sockid, wv);

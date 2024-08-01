@@ -649,11 +649,14 @@ ProcessTCPPayload(mtcp_manager_t mtcp, tcp_stream *cur_stream,
 	}
 
 	prev_rcv_nxt = cur_stream->rcv_nxt;
+        //RBPrint(mtcp->rbm_rcv, rcvvar->rcvbuf);
 	ret = RBPut(mtcp->rbm_rcv, 
 			rcvvar->rcvbuf, payload, (uint32_t)payloadlen, seq);
 	if (ret < 0) {
 		TRACE_ERROR("Cannot merge payload. reason: %d\n", ret);
 	}
+        fprintf (stderr, "RBPut()\n");
+        RBPrint(mtcp->rbm_rcv, rcvvar->rcvbuf);
 
 	/* discard the buffer if the state is FIN_WAIT_1 or FIN_WAIT_2, 
 	   meaning that the connection is already closed by the application */
@@ -669,17 +672,30 @@ ProcessTCPPayload(mtcp_manager_t mtcp, tcp_stream *cur_stream,
 
 	if (TCP_SEQ_LEQ(cur_stream->rcv_nxt, prev_rcv_nxt)) {
 		/* There are some lost packets */
-	        TRACE_INFO("lost packets?: %u prev: %u merged_len: %u\n",
-                        cur_stream->rcv_nxt, prev_rcv_nxt,
+	        TRACE_INFO("Stream %d lost packets? "
+                        "len: %d seq: %u(+%u) expect: %u(+%u) prev: %u(+%u) merged_len: %u\n",
+                        cur_stream->id, payloadlen,
+                        seq, seq - cur_stream->rcvvar->irs,
+                        cur_stream->rcv_nxt,
+                        cur_stream->rcv_nxt - cur_stream->rcvvar->irs,
+                        prev_rcv_nxt,
+                        prev_rcv_nxt - cur_stream->rcvvar->irs,
                         rcvvar->rcvbuf->merged_len);
 		return FALSE;
 	}
 
 	TRACE_INFO("Stream %d data arrived. "
-			"len: %d, ET: %u, IN: %u, OUT: %u\n", 
-			cur_stream->id, payloadlen, 
-			cur_stream->socket? cur_stream->socket->epoll & MTCP_EPOLLET : 0, 
-			cur_stream->socket? cur_stream->socket->epoll & MTCP_EPOLLIN : 0, 
+                        "len: %d seq: %u(+%u) next: %u(+%u) prev: %u(+%u) merged_len: %u, "
+			"ET: %u, IN: %u, OUT: %u\n",
+                        cur_stream->id, payloadlen,
+                        seq, seq - cur_stream->rcvvar->irs,
+                        cur_stream->rcv_nxt,
+                        cur_stream->rcv_nxt - cur_stream->rcvvar->irs,
+                        prev_rcv_nxt,
+                        prev_rcv_nxt - cur_stream->rcvvar->irs,
+                        rcvvar->rcvbuf->merged_len,
+			cur_stream->socket? cur_stream->socket->epoll & MTCP_EPOLLET : 0,
+			cur_stream->socket? cur_stream->socket->epoll & MTCP_EPOLLIN : 0,
 			cur_stream->socket? cur_stream->socket->epoll & MTCP_EPOLLOUT : 0);
 
 	if (cur_stream->state == TCP_ST_ESTABLISHED) {
@@ -701,7 +717,7 @@ CreateNewFlowHTEntry(mtcp_manager_t mtcp, uint32_t cur_ts, const struct iphdr *i
 		/* handle the SYN */
 		ret = FilterSYNPacket(mtcp, iph->daddr, tcph->dest);
 		if (!ret) {
-			TRACE_DBG("Refusing SYN packet.\n");
+			TRACE_INFO("Refusing SYN packet. reset.\n");
 #ifdef DBGMSG
 			DumpIPPacket(mtcp, iph, ip_len);
 #endif
@@ -717,7 +733,7 @@ CreateNewFlowHTEntry(mtcp_manager_t mtcp, uint32_t cur_ts, const struct iphdr *i
 		cur_stream = HandlePassiveOpen(mtcp, 
 				cur_ts, iph, tcph, seq, window);
 		if (!cur_stream) {
-			TRACE_DBG("Not available space in flow pool.\n");
+			TRACE_INFO("Not available space in flow pool.\n");
 #ifdef DBGMSG
 			DumpIPPacket(mtcp, iph, ip_len);
 #endif
@@ -731,14 +747,14 @@ CreateNewFlowHTEntry(mtcp_manager_t mtcp, uint32_t cur_ts, const struct iphdr *i
 
 		return cur_stream;
 	} else if (tcph->rst) {
-		TRACE_DBG("Reset packet comes\n");
+		TRACE_INFO("Reset packet comes\n");
 #ifdef DBGMSG
 		DumpIPPacket(mtcp, iph, ip_len);
 #endif
 		/* for the reset packet, just discard */
 		return NULL;
 	} else {
-		TRACE_DBG("Weird packet comes.\n");
+		TRACE_INFO("Weird packet comes.\n");
 #ifdef DBGMSG
 		DumpIPPacket(mtcp, iph, ip_len);
 #endif
@@ -748,6 +764,7 @@ CreateNewFlowHTEntry(mtcp_manager_t mtcp, uint32_t cur_ts, const struct iphdr *i
 		   else (ACK bit is on):
 		   <SEQ=SEG.ACK><CTL=RST>
 		   */
+#if 0
 		if (tcph->ack) {
 			SendTCPPacketStandalone(mtcp, 
 					iph->daddr, tcph->dest, iph->saddr, tcph->source, 
@@ -758,6 +775,7 @@ CreateNewFlowHTEntry(mtcp_manager_t mtcp, uint32_t cur_ts, const struct iphdr *i
 					0, seq + payloadlen, 0, TCP_FLAG_RST | TCP_FLAG_ACK, 
 					NULL, 0, cur_ts, 0);
 		}
+#endif
 		return NULL;
 	}
 }
@@ -1235,8 +1253,10 @@ ProcessTCPPacket(mtcp_manager_t mtcp,
 	int ret;
 	int rc = -1;
 
+#if 0
 	TRACE_INFO("Receive TCP Packet: tcph->seq %u, ack: %u, len: %d\n",
 		seq, ack_seq, payloadlen);
+#endif
 
 	/* Check ip packet invalidation */	
 	if (ip_len < ((iph->ihl + tcph->doff) << 2))
@@ -1280,8 +1300,13 @@ ProcessTCPPacket(mtcp_manager_t mtcp,
 			return TRUE;
 	}
 
+#if 0
         TRACE_INFO ("rel seq: %u len %u\n",
                     seq - cur_stream->rcvvar->irs, payloadlen);
+#endif
+	TRACE_INFO("Receive TCP Packet: tcph->seq %u(+%u), ack: %u, len: %d\n",
+		seq, seq - cur_stream->rcvvar->irs,
+                ack_seq, payloadlen);
 
 	/* Validate sequence. if not valid, ignore the packet */
 	if (cur_stream->state > TCP_ST_SYN_RCVD) {
