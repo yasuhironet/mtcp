@@ -198,6 +198,7 @@ PrintThreadNetworkStats(mtcp_manager_t mtcp, struct net_stat *ns)
 		ns->tx_packets[i] = mtcp->nstat.tx_packets[i] - mtcp->p_nstat.tx_packets[i];
 		ns->tx_drops[i] = mtcp->nstat.tx_drops[i] - mtcp->p_nstat.tx_drops[i];
 		ns->tx_bytes[i] = mtcp->nstat.tx_bytes[i] - mtcp->p_nstat.tx_bytes[i];
+#if 0
 #if NETSTAT_PERTHREAD
 		if (CONFIG.eths[i].stat_print) {
 			fprintf(stderr, "[CPU%2d] %s flows: %6u, "
@@ -207,6 +208,7 @@ PrintThreadNetworkStats(mtcp_manager_t mtcp, struct net_stat *ns)
 					ns->rx_packets[i], ns->rx_errors[i], GBPS(ns->rx_bytes[i]), 
 				ns->tx_packets[i], GBPS(ns->tx_bytes[i]));
 		}
+#endif
 #endif
 	}
 #ifdef ENABLELRO
@@ -306,6 +308,7 @@ PrintNetworkStats(mtcp_manager_t mtcp, uint32_t cur_ts)
 #endif
 		}
 	}
+#if 0
 #if NETSTAT_TOTAL
 	for (i = 0; i < CONFIG.eths_num; i++) {
 		if (CONFIG.eths[i].stat_print) {
@@ -320,6 +323,7 @@ PrintNetworkStats(mtcp_manager_t mtcp, uint32_t cur_ts)
 #ifdef ENABLELRO
 	fprintf(stderr, "[ ALL ] Goodput RX: %5.2lf(Gbps), TX: %5.2lf(Gbps)\n",
 			GBPS(g_nstat.rx_gdptbytes), GBPS(g_nstat.tx_gdptbytes));
+#endif
 #endif
 #endif
 

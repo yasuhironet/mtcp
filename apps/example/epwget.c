@@ -763,7 +763,7 @@ HandleReadEvent(thread_context_t ctx, int sockid, struct wget_vars *wv)
 #endif
 
 #if 1
-                if (!offline_resumed && wv->recv > 16000000) {
+                if (!offline_resumed && wv->recv > 15000000) {
                         offline_pause (ctx, sockid, wv);
                 }
 #endif
