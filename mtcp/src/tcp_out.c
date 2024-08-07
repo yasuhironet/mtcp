@@ -878,6 +878,10 @@ WriteTCPACKList(mtcp_manager_t mtcp,
 						to_ack = TRUE;
 					}
 				}
+				else {
+					/* no rcvbuf case for resume. */
+					to_ack = TRUE;
+				}
 			} else {
 				TRACE_DBG("Stream %u (%s): "
 						"Try sending ack at not proper state. "
