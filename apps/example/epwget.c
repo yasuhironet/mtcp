@@ -691,6 +691,7 @@ HandleReadEvent(thread_context_t ctx, int sockid, struct wget_vars *wv)
 	char *pbuf;
 	int rd, copy_len;
 
+#if 0
                 fprintf (stderr,
                          "%s:%d: %s: wv: %p wv->header_len: %d wv->headerset: %d\n",
                          __FILE__, __LINE__, __func__, wv, wv->header_len, wv->headerset);
@@ -707,15 +708,20 @@ HandleReadEvent(thread_context_t ctx, int sockid, struct wget_vars *wv)
 
         stream = socket->stream;
         assert (stream);
+#endif
 
 	rd = 1;
 	while (rd > 0) {
+#if 0
                 fprintf (stderr, "before mtcp_read():\n");
                 print_ring_buffer_state (stream->rcvvar->rcvbuf);
+#endif
 		rd = mtcp_read(mctx, sockid, buf, BUF_SIZE);
+#if 0
                 fprintf (stderr, "after mtcp_read():\n");
                 print_ring_buffer_state (stream->rcvvar->rcvbuf);
                 fprintf (stderr, "print_ring_buffer_state() end\n");
+#endif
 		if (rd <= 0)
 			break;
 		ctx->stat.reads += rd;
