@@ -303,9 +303,13 @@ SendTCPPacket(struct mtcp_manager *mtcp, tcp_stream *cur_stream,
 
 	window32 = cur_stream->rcvvar->rcv_wnd >> wscale;
 	tcph->window = htons((uint16_t)MIN(window32, TCP_MAX_WINDOW));
+        TRACE_INFO ("rcv_wnd: %d wscale: %d window32: %d\n",
+                    cur_stream->rcvvar->rcv_wnd, wscale, window32);
 	/* if the advertised window is 0, we need to advertise again later */
 	if (window32 == 0) {
 		cur_stream->need_wnd_adv = TRUE;
+                TRACE_INFO ("need_wnd_adv: %d\n",
+                            cur_stream->need_wnd_adv);
 	}
 
 	GenerateTCPOptions(cur_stream, cur_ts, flags, 

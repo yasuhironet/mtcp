@@ -436,14 +436,20 @@ print_ring_buffer_state (struct tcp_ring_buffer *buff)
       return;
     }
 
-  fprintf (stderr, "buff->head_offset: %u\n", buff->head_offset);
-  fprintf (stderr, "buff->tail_offset: %u\n", buff->tail_offset);
-  fprintf (stderr, "buff->merged_len: %d\n", buff->merged_len);
-  fprintf (stderr, "buff->cum_len: %lu\n", buff->cum_len);
-  fprintf (stderr, "buff->last_len: %d\n", buff->last_len);
-  fprintf (stderr, "buff->size: %d\n", buff->size);
-  fprintf (stderr, "buff->head_seq: %u\n", buff->head_seq);
-  fprintf (stderr, "buff->init_seq: %u\n", buff->init_seq);
+  fprintf (stderr, "ringbuf: %p headoff: %u tailoff: %u merged_len: %d "
+           "cum_len: %lu last_len: %d size: %d headseq: %u initseq: %u\n",
+           buff, buff->head_offset, buff->tail_offset, buff->merged_len,
+           buff->cum_len, buff->last_len, buff->size,
+           buff->head_seq, buff->init_seq);
+
+  struct fragment_ctx *fctx;
+  fctx = buff->fctx;
+  while (fctx)
+    {
+      fprintf (stderr, "ringbuf: %p fctx: %p seq: %u len: %d next: %p\n",
+               buff, fctx, fctx->seq, fctx->len, fctx->next);
+      fctx = fctx->next;
+    }
 }
 
 int
@@ -689,9 +695,27 @@ HandleReadEvent(thread_context_t ctx, int sockid, struct wget_vars *wv)
                          "%s:%d: %s: wv: %p wv->header_len: %d wv->headerset: %d\n",
                          __FILE__, __LINE__, __func__, wv, wv->header_len, wv->headerset);
 
+        mtcp_manager_t mtcp;
+        socket_map_t socket;
+        tcp_stream *stream;
+
+        mtcp = GetMTCPManager(ctx->mctx);
+        assert (mtcp);
+
+        socket = &mtcp->smap[sockid];
+        assert (socket);
+
+        stream = socket->stream;
+        assert (stream);
+
 	rd = 1;
 	while (rd > 0) {
+                fprintf (stderr, "before mtcp_read():\n");
+                print_ring_buffer_state (stream->rcvvar->rcvbuf);
 		rd = mtcp_read(mctx, sockid, buf, BUF_SIZE);
+                fprintf (stderr, "after mtcp_read():\n");
+                print_ring_buffer_state (stream->rcvvar->rcvbuf);
+                fprintf (stderr, "print_ring_buffer_state() end\n");
 		if (rd <= 0)
 			break;
 		ctx->stat.reads += rd;
@@ -1066,6 +1090,12 @@ RunWgetMain(void *arg)
 					SendHTTPRequest(ctx, events[i].data.sockid, wv);
 				} else {
 					//TRACE_DBG("Request already sent.\n");
+
+	struct mtcp_epoll_event ev;
+	ev.events = MTCP_EPOLLIN;
+	ev.data.sockid = events[i].data.sockid;
+	mtcp_epoll_ctl(ctx->mctx, ctx->ep, MTCP_EPOLL_CTL_MOD, events[i].data.sockid, &ev);
+
 				}
 
 			} else {
