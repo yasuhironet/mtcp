@@ -303,17 +303,9 @@ SendTCPPacket(struct mtcp_manager *mtcp, tcp_stream *cur_stream,
 
 	window32 = cur_stream->rcvvar->rcv_wnd >> wscale;
 	tcph->window = htons((uint16_t)MIN(window32, TCP_MAX_WINDOW));
-#if 0
-	TRACE_INFO ("rcv_wnd: %d wscale: %d window32: %d\n",
-		cur_stream->rcvvar->rcv_wnd, wscale, window32);
-#endif
 	/* if the advertised window is 0, we need to advertise again later */
 	if (window32 == 0) {
 		cur_stream->need_wnd_adv = TRUE;
-#if 0
-		TRACE_INFO ("need_wnd_adv: %d\n",
-			cur_stream->need_wnd_adv);
-#endif
 	}
 
 	GenerateTCPOptions(cur_stream, cur_ts, flags, 
@@ -634,8 +626,6 @@ SendControlPacket(mtcp_manager_t mtcp, tcp_stream *cur_stream, uint32_t cur_ts)
 
 	} else if (cur_stream->state == TCP_ST_ESTABLISHED) {
 		/* Send ACK here */
-        printf ("%s:%d: %s: Send ACK here\n",
-                __FILE__, __LINE__, __func__);
 		ret = SendTCPPacket(mtcp, cur_stream, cur_ts, TCP_FLAG_ACK, NULL, 0);
 
 	} else if (cur_stream->state == TCP_ST_CLOSE_WAIT) {
@@ -882,21 +872,12 @@ WriteTCPACKList(mtcp_manager_t mtcp,
 				/* TIMEWAIT is possible since the ack is queued 
 				   at FIN_WAIT_2 */
 				if (cur_stream->rcvvar->rcvbuf) {
-#if 1
 					if (TCP_SEQ_LEQ(cur_stream->rcv_nxt, 
 								cur_stream->rcvvar->rcvbuf->head_seq + 
 								cur_stream->rcvvar->rcvbuf->merged_len)) {
 						to_ack = TRUE;
 					}
-#else
-						to_ack = TRUE;
-#endif
 				}
-                                else {
-                                        printf ("%s:%d: %s: no rcvbuf.\n",
-                                                __FILE__, __LINE__, __func__);
-						to_ack = TRUE;
-                                }
 			} else {
 				TRACE_DBG("Stream %u (%s): "
 						"Try sending ack at not proper state. "
@@ -938,8 +919,6 @@ WriteTCPACKList(mtcp_manager_t mtcp,
 					sender->ack_list_cnt--;
 				}
 			} else {
-                                printf ("%s:%d: %s: not to_ack\n",
-                                        __FILE__, __LINE__, __func__);
 				cur_stream->sndvar->on_ack_list = FALSE;
 				cur_stream->sndvar->ack_cnt = 0;
 				cur_stream->sndvar->is_wack = 0;
@@ -1099,7 +1078,6 @@ inline void
 EnqueueACK(mtcp_manager_t mtcp, 
 		tcp_stream *cur_stream, uint32_t cur_ts, uint8_t opt)
 {
-
 	if (!(cur_stream->state == TCP_ST_ESTABLISHED || 
 			cur_stream->state == TCP_ST_CLOSE_WAIT || 
 			cur_stream->state == TCP_ST_FIN_WAIT_1 || 

@@ -198,7 +198,7 @@ PrintThreadNetworkStats(mtcp_manager_t mtcp, struct net_stat *ns)
 		ns->tx_packets[i] = mtcp->nstat.tx_packets[i] - mtcp->p_nstat.tx_packets[i];
 		ns->tx_drops[i] = mtcp->nstat.tx_drops[i] - mtcp->p_nstat.tx_drops[i];
 		ns->tx_bytes[i] = mtcp->nstat.tx_bytes[i] - mtcp->p_nstat.tx_bytes[i];
-#if 0
+#if NETSTAT_PERTHREAD
 		if (CONFIG.eths[i].stat_print) {
 			fprintf(stderr, "[CPU%2d] %s flows: %6u, "
 					"RX: %7ld(pps) (err: %5ld), %5.2lf(Gbps), "
@@ -306,7 +306,7 @@ PrintNetworkStats(mtcp_manager_t mtcp, uint32_t cur_ts)
 #endif
 		}
 	}
-#if 0
+#if NETSTAT_TOTAL
 	for (i = 0; i < CONFIG.eths_num; i++) {
 		if (CONFIG.eths[i].stat_print) {
 			fprintf(stderr, "[ ALL ] %s flows: %6u, "
@@ -679,14 +679,6 @@ WritePacketsToChunks(mtcp_manager_t mtcp, uint32_t cur_ts)
 	int thresh = CONFIG.max_concurrency;
 	int i;
 
-#if 0
-        printf ("%s:%d: %s: enter.\n",
-                __FILE__, __LINE__, __func__);
-
-        fprintf (stderr, "%s:%d: %s: enter.\n",
-                __FILE__, __LINE__, __func__);
-#endif
-
 	/* Set the threshold to CONFIG.max_concurrency to send ACK immediately */
 	/* Otherwise, set to appropriate value (e.g. thresh) */
 	assert(mtcp->g_sender != NULL);
@@ -783,16 +775,9 @@ RunMainLoop(struct mtcp_thread_context *ctx)
 	ts = ts_prev = 0;
 	while ((!ctx->done || mtcp->flow_cnt) && !ctx->exit) {
 
-#if 0
-        printf ("%s:%d: %s: enter.\n",
-                __FILE__, __LINE__, __func__);
-        fprintf (stderr, "%s:%d: %s: enter.\n",
-                __FILE__, __LINE__, __func__);
-#endif
-		
 		STAT_COUNT(mtcp->runstat.rounds);
 		recv_cnt = 0;
-			
+
 		gettimeofday(&cur_ts, NULL);
 		ts = TIMEVAL_TO_TS(&cur_ts);
 		mtcp->cur_ts = ts;

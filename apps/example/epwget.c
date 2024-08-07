@@ -204,8 +204,6 @@ CreateConnection(thread_context_t ctx)
 		TRACE_ERROR("Failed to set socket in nonblocking mode.\n");
 		exit(-1);
 	}
-        fprintf (stderr, "wvars: %p cleared.\n",
-                 &ctx->wvars[sockid]);
 
 	addr.sin_family = AF_INET;
 	addr.sin_addr.s_addr = daddr;
@@ -611,17 +609,8 @@ offline_resume (thread_context_t ctx, int sockid, struct wget_vars *wv)
   stream->sndvar->ts_lastack_sent = sndvar.ts_lastack_sent;
   stream->sndvar->is_wack = sndvar.is_wack;
   stream->sndvar->ack_cnt = sndvar.ack_cnt;
-#if 0
-  stream->sndvar->on_control_list = sndvar.on_control_list;
-  stream->sndvar->on_send_list = sndvar.on_send_list;
-  stream->sndvar->on_ack_list = sndvar.on_ack_list;
-  stream->sndvar->on_sendq = sndvar.on_sendq;
-  stream->sndvar->on_ackq = sndvar.on_ackq;
-  stream->sndvar->on_closeq = sndvar.on_closeq;
-  stream->sndvar->on_resetq = sndvar.on_resetq;
-  stream->sndvar->on_closeq_int = sndvar.on_closeq_int;
-  stream->sndvar->on_resetq_int = sndvar.on_resetq_int;
-#else
+
+  /* on_XXX_list flags are turned off when resumed. */
   stream->sndvar->on_control_list = 0;
   stream->sndvar->on_send_list = 0;
   stream->sndvar->on_ack_list = 0;
@@ -631,7 +620,7 @@ offline_resume (thread_context_t ctx, int sockid, struct wget_vars *wv)
   stream->sndvar->on_resetq = 0;
   stream->sndvar->on_closeq_int = 0;
   stream->sndvar->on_resetq_int = 0;
-#endif
+
   stream->sndvar->is_fin_sent = sndvar.is_fin_sent;
   stream->sndvar->is_fin_ackd = sndvar.is_fin_ackd;
 
@@ -668,15 +657,9 @@ offline_resume (thread_context_t ctx, int sockid, struct wget_vars *wv)
   gettimeofday(&cur_ts, NULL);
   ts = TIMEVAL_TO_TS(&cur_ts);
   mtcp->cur_ts = ts;
-#if 0
+
   /* resume at sending the last ack. */
-  SendTCPPacketStandalone(mtcp, 
-      iph->daddr, tcph->dest, iph->saddr, tcph->source, 
-      0, seq + payloadlen + 1, 0, TCP_FLAG_RST | TCP_FLAG_ACK, 
-      NULL, 0, cur_ts, 0);
-#else
   EnqueueACK(mtcp, stream, ts, ACK_OPT_NOW);
-#endif
 
   return 0;
 }
@@ -691,50 +674,18 @@ HandleReadEvent(thread_context_t ctx, int sockid, struct wget_vars *wv)
 	char *pbuf;
 	int rd, copy_len;
 
-#if 0
-                fprintf (stderr,
-                         "%s:%d: %s: wv: %p wv->header_len: %d wv->headerset: %d\n",
-                         __FILE__, __LINE__, __func__, wv, wv->header_len, wv->headerset);
-
-        mtcp_manager_t mtcp;
-        socket_map_t socket;
-        tcp_stream *stream;
-
-        mtcp = GetMTCPManager(ctx->mctx);
-        assert (mtcp);
-
-        socket = &mtcp->smap[sockid];
-        assert (socket);
-
-        stream = socket->stream;
-        assert (stream);
-#endif
-
 	rd = 1;
 	while (rd > 0) {
-#if 0
-                fprintf (stderr, "before mtcp_read():\n");
-                print_ring_buffer_state (stream->rcvvar->rcvbuf);
-#endif
 		rd = mtcp_read(mctx, sockid, buf, BUF_SIZE);
-#if 0
-                fprintf (stderr, "after mtcp_read():\n");
-                print_ring_buffer_state (stream->rcvvar->rcvbuf);
-                fprintf (stderr, "print_ring_buffer_state() end\n");
-#endif
 		if (rd <= 0)
 			break;
 		ctx->stat.reads += rd;
 		ctx->stat.read_count++;
 
-		fprintf(stderr, "read[%lu]: Socket %d: mtcp_read ret: %d, total_recv: %lu, "
+		TRACE_APP("read[%lu]: Socket %d: mtcp_read ret: %d, total_recv: %lu, "
 				"header_set: %d, header_len: %u, file_len: %lu\n",
 				ctx->stat.read_count, sockid, rd, wv->recv + rd,
 				wv->headerset, wv->header_len, wv->file_len);
-
-                fprintf (stderr,
-                         "%s:%d %s: wv: %p wv->header_len: %d wv->headerset: %d\n",
-                         __FILE__, __LINE__, __func__, wv, wv->header_len, wv->headerset);
 
 		pbuf = buf;
 		if (!wv->headerset) {
@@ -754,7 +705,7 @@ HandleReadEvent(thread_context_t ctx, int sockid, struct wget_vars *wv)
 					return 0;
 				}
 
-				TRACE_INFO("Socket %d Parsed response header. "
+				TRACE_APP("Socket %d Parsed response header. "
 						"Header length: %u, File length: %lu (%luMB)\n", 
 						sockid, wv->header_len, 
 						wv->file_len, wv->file_len / 1024 / 1024);
@@ -768,12 +719,11 @@ HandleReadEvent(thread_context_t ctx, int sockid, struct wget_vars *wv)
 
 			} else {
 				/* failed to parse response header */
-#if 1
-				TRACE_INFO("[CPU %d] Socket %d Failed to parse response header."
+#if 0
+				TRACE_APP("[CPU %d] Socket %d Failed to parse response header."
 						" Data: \n%s\n", ctx->core, sockid, wv->response);
 				fflush(stdout);
 #endif
-                                fprintf (stderr, "failed to parse response header: wv->header_len: %d wv->headerset: %d\n", wv->header_len, wv->headerset);
 				wv->recv += rd;
 				rd = 0;
 				ctx->stat.errors++;
@@ -802,7 +752,7 @@ HandleReadEvent(thread_context_t ctx, int sockid, struct wget_vars *wv)
                                  ctx->stat.file_writes += _wr;
 				 wr += _wr;	
 				 wv->write += _wr;
-				TRACE_INFO("write[%lu]: +%d = %d / %d bytes (%lu / %lu) (file: %lu bytes)\n", ctx->stat.file_write_count, _wr, wr, rd, ctx->stat.file_writes, ctx->stat.reads, wv->file_len);
+				TRACE_APP("write[%lu]: +%d = %d / %d bytes (%lu / %lu) (file: %lu bytes)\n", ctx->stat.file_write_count, _wr, wr, rd, ctx->stat.file_writes, ctx->stat.reads, wv->file_len);
 			}
 		}
 		
@@ -844,7 +794,7 @@ HandleReadEvent(thread_context_t ctx, int sockid, struct wget_vars *wv)
 
 	} else if (rd < 0) {
 		if (errno != EAGAIN) {
-			TRACE_INFO("Socket %d: mtcp_read() error %s\n", 
+			TRACE_DBG("Socket %d: mtcp_read() error %s\n", 
 					sockid, strerror(errno));
 			ctx->stat.errors++;
 			ctx->errors++;
@@ -1004,7 +954,6 @@ RunWgetMain(void *arg)
 		exit(EXIT_FAILURE);
 	}
 	ctx->wvars = wvars;
-        fprintf (stderr, "wvars: created: %p\n", wvars);
 
 	ctx->started = ctx->done = ctx->pending = 0;
 	ctx->errors = ctx->incompletes = 0;
@@ -1051,7 +1000,7 @@ RunWgetMain(void *arg)
 				int err;
 				socklen_t len = sizeof(err);
 
-				TRACE_INFO("[CPU %d] Error on socket %d\n", 
+				TRACE_APP("[CPU %d] Error on socket %d\n", 
 						core, events[i].data.sockid);
 				ctx->stat.errors++;
 				ctx->errors++;
@@ -1069,16 +1018,8 @@ RunWgetMain(void *arg)
                                         is_offline_resume = 0;
                                 }
 
-			fprintf(stdout, "[CPU %d] Before: handleread: %d connections, "
-					"errors: %d incompletes: %d\n", 
-					ctx->core, ctx->done, ctx->errors, ctx->incompletes);
-
 				HandleReadEvent(ctx, 
 						events[i].data.sockid, &wvars[events[i].data.sockid]);
-
-			fprintf(stdout, "[CPU %d] After: handleread: %d connections, "
-					"errors: %d incompletes: %d\n", 
-					ctx->core, ctx->done, ctx->errors, ctx->incompletes);
 
 			} else if (events[i].events == MTCP_EPOLLOUT) {
 
@@ -1088,9 +1029,6 @@ RunWgetMain(void *arg)
                                 }
 
 				struct wget_vars *wv = &wvars[events[i].data.sockid];
-
-        fprintf (stderr, "%s:%d: %s: EPOLLOUT: wvars: %p wv->headerset: %d wv->header_len: %d wv->file_len: %lu wv->request_sent: %d\n",
-                 __FILE__, __LINE__, __func__, wv, wv->headerset, wv->header_len, wv->file_len, wv->request_sent);
 
 				if (!wv->request_sent) {
 					SendHTTPRequest(ctx, events[i].data.sockid, wv);

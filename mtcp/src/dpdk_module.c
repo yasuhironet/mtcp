@@ -347,10 +347,8 @@ dpdk_send_pkts(struct mtcp_thread_context *ctxt, int ifidx)
 		int cnt = dpc->wmbufs[ifidx].len;
 		pkts = dpc->wmbufs[ifidx].m_table;
 
-                //TRACE_INFO ("%s: dpdk_send: %d pkts portid: %d\n",
-                //        __func__, cnt, portid);
-                if (cnt && !link_status[portid])
-                    TRACE_ERROR ("sending to a down port: %d.\n", portid);
+		if (cnt && !link_status[portid])
+			TRACE_ERROR ("sending to a down port: %d.\n", portid);
 #ifdef NETSTAT
 		mtcp->nstat.tx_packets[ifidx] += cnt;
 #ifdef ENABLE_STATS_IOCTL
@@ -617,7 +615,7 @@ check_all_ports_link_status(uint8_t port_num, uint32_t port_mask)
 			memset(&link, 0, sizeof(link));
 			rte_eth_link_get_nowait(portid, &link);
 			/* print link status if flag set */
-                        link_status[portid] = !!link.link_status;
+			link_status[portid] = !!link.link_status;
 			if (print_flag == 1) {
 				if (link.link_status)
 					printf("Port %d Link Up - speed %u "

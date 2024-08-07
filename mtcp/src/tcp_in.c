@@ -117,7 +117,7 @@ ValidateSequence(mtcp_manager_t mtcp, tcp_stream *cur_stream, uint32_t cur_ts,
 				(tcph->doff << 2) - TCP_HEADER_LEN)) {
 			/* if there is no timestamp */
 			/* TODO: implement here */
-			TRACE_ERROR("No timestamp found.\n");
+			TRACE_DBG("No timestamp found.\n");
 			return FALSE;
 		}
 
@@ -125,7 +125,7 @@ ValidateSequence(mtcp_manager_t mtcp, tcp_stream *cur_stream, uint32_t cur_ts,
 		if (TCP_SEQ_LT(ts.ts_val, cur_stream->rcvvar->ts_recent)) {
 			/* TODO: ts_recent should be invalidated 
 					 before timestamp wraparound for long idle flow */
-			TRACE_ERROR("PAWS Detect wrong timestamp. "
+			TRACE_DBG("PAWS Detect wrong timestamp. "
 					"seq: %u, ts_val: %u, prev: %u\n", 
 					seq, ts.ts_val, cur_stream->rcvvar->ts_recent);
 			EnqueueACK(mtcp, cur_stream, cur_ts, ACK_OPT_NOW);
@@ -133,7 +133,7 @@ ValidateSequence(mtcp_manager_t mtcp, tcp_stream *cur_stream, uint32_t cur_ts,
 		} else {
 			/* valid timestamp */
 			if (TCP_SEQ_GT(ts.ts_val, cur_stream->rcvvar->ts_recent)) {
-				TRACE_ERROR("Timestamp update. cur: %u, prior: %u "
+				TRACE_TSTAMP("Timestamp update. cur: %u, prior: %u "
 					"(time diff: %uus)\n", 
 					ts.ts_val, cur_stream->rcvvar->ts_recent, 
 					TS_TO_USEC(cur_ts - cur_stream->rcvvar->ts_last_ts_upd));
@@ -156,8 +156,8 @@ ValidateSequence(mtcp_manager_t mtcp, tcp_stream *cur_stream, uint32_t cur_ts,
 		if (cur_stream->state == TCP_ST_ESTABLISHED) {
 			/* check if it is to get window advertisement */
 			if (seq + 1 == cur_stream->rcv_nxt) {
-#if 1
-				TRACE_ERROR("Window update request. (seq: %u, rcv_wnd: %u)\n", 
+#if 0
+				TRACE_DBG("Window update request. (seq: %u, rcv_wnd: %u)\n",
 						seq, cur_stream->rcvvar->rcv_wnd);
 #endif
 				EnqueueACK(mtcp, cur_stream, cur_ts, ACK_OPT_AGGREGATE);
@@ -167,13 +167,13 @@ ValidateSequence(mtcp_manager_t mtcp, tcp_stream *cur_stream, uint32_t cur_ts,
 
 #if 0
 			if (TCP_SEQ_LEQ(seq, cur_stream->rcv_nxt)) {
-		        TRACE_ERROR("%s:%d: %s: EnqueueACK\n",
-                                 __FILE__, __LINE__, __func__);
+				TRACE_ERROR("%s:%d: %s: EnqueueACK\n",
+					__FILE__, __LINE__, __func__);
 				EnqueueACK(mtcp, cur_stream, cur_ts, ACK_OPT_AGGREGATE);
 			} else {
 #endif
-		        TRACE_ERROR("%s:%d: %s: EnqueueACK\n",
-                                 __FILE__, __LINE__, __func__);
+				TRACE_ERROR("%s:%d: %s: EnqueueACK\n",
+					__FILE__, __LINE__, __func__);
 				EnqueueACK(mtcp, cur_stream, cur_ts, ACK_OPT_NOW);
 #if 0
 			}
@@ -186,7 +186,7 @@ ValidateSequence(mtcp_manager_t mtcp, tcp_stream *cur_stream, uint32_t cur_ts,
 			}
 			AddtoControlList(mtcp, cur_stream, cur_ts);
 		}
-                /* if in resume mode, sequence may become lower one. */
+		/* if in resume mode, sequence may become lower one. */
 		//return FALSE;
 	}
 
@@ -636,10 +636,10 @@ ProcessTCPPayload(mtcp_manager_t mtcp, tcp_stream *cur_stream,
 
 			return ERROR;
 		}
-                if (cur_stream->state == TCP_ST_ESTABLISHED) {
-                        /* resume mode */
-                        rcvvar->rcvbuf->head_seq = cur_stream->rcv_nxt;
-                }
+		if (cur_stream->state == TCP_ST_ESTABLISHED) {
+			/* resume mode */
+			rcvvar->rcvbuf->head_seq = cur_stream->rcv_nxt;
+		}
 	}
 
 	if (SBUF_LOCK(&rcvvar->read_lock)) {
@@ -649,14 +649,13 @@ ProcessTCPPayload(mtcp_manager_t mtcp, tcp_stream *cur_stream,
 	}
 
 	prev_rcv_nxt = cur_stream->rcv_nxt;
-        //RBPrint(mtcp->rbm_rcv, rcvvar->rcvbuf);
 	ret = RBPut(mtcp->rbm_rcv, 
 			rcvvar->rcvbuf, payload, (uint32_t)payloadlen, seq);
 	if (ret < 0) {
 		TRACE_ERROR("Cannot merge payload. reason: %d\n", ret);
 	}
-        fprintf (stderr, "RBPut()\n");
-        RBPrint(mtcp->rbm_rcv, rcvvar->rcvbuf);
+	fprintf (stderr, "RBPut()\n");
+	RBPrint(mtcp->rbm_rcv, rcvvar->rcvbuf);
 
 	/* discard the buffer if the state is FIN_WAIT_1 or FIN_WAIT_2, 
 	   meaning that the connection is already closed by the application */
@@ -672,28 +671,28 @@ ProcessTCPPayload(mtcp_manager_t mtcp, tcp_stream *cur_stream,
 
 	if (TCP_SEQ_LEQ(cur_stream->rcv_nxt, prev_rcv_nxt)) {
 		/* There are some lost packets */
-	        TRACE_INFO("Stream %d lost packets? "
-                        "len: %d seq: %u(+%u) expect: %u(+%u) prev: %u(+%u) merged_len: %u\n",
-                        cur_stream->id, payloadlen,
-                        seq, seq - cur_stream->rcvvar->irs,
-                        cur_stream->rcv_nxt,
-                        cur_stream->rcv_nxt - cur_stream->rcvvar->irs,
-                        prev_rcv_nxt,
-                        prev_rcv_nxt - cur_stream->rcvvar->irs,
-                        rcvvar->rcvbuf->merged_len);
+		TRACE_INFO("Stream %d lost packets? "
+			"len: %d seq: %u(+%u) expect: %u(+%u) prev: %u(+%u) merged_len: %u\n",
+			cur_stream->id, payloadlen,
+			seq, seq - cur_stream->rcvvar->irs,
+			cur_stream->rcv_nxt,
+			cur_stream->rcv_nxt - cur_stream->rcvvar->irs,
+			prev_rcv_nxt,
+			prev_rcv_nxt - cur_stream->rcvvar->irs,
+			rcvvar->rcvbuf->merged_len);
 		return FALSE;
 	}
 
 	TRACE_INFO("Stream %d data arrived. "
-                        "len: %d seq: %u(+%u) next: %u(+%u) prev: %u(+%u) merged_len: %u, "
+			"len: %d seq: %u(+%u) next: %u(+%u) prev: %u(+%u) merged_len: %u, "
 			"ET: %u, IN: %u, OUT: %u\n",
-                        cur_stream->id, payloadlen,
-                        seq, seq - cur_stream->rcvvar->irs,
-                        cur_stream->rcv_nxt,
-                        cur_stream->rcv_nxt - cur_stream->rcvvar->irs,
-                        prev_rcv_nxt,
-                        prev_rcv_nxt - cur_stream->rcvvar->irs,
-                        rcvvar->rcvbuf->merged_len,
+			cur_stream->id, payloadlen,
+			seq, seq - cur_stream->rcvvar->irs,
+			cur_stream->rcv_nxt,
+			cur_stream->rcv_nxt - cur_stream->rcvvar->irs,
+			prev_rcv_nxt,
+			prev_rcv_nxt - cur_stream->rcvvar->irs,
+			rcvvar->rcvbuf->merged_len,
 			cur_stream->socket? cur_stream->socket->epoll & MTCP_EPOLLET : 0,
 			cur_stream->socket? cur_stream->socket->epoll & MTCP_EPOLLIN : 0,
 			cur_stream->socket? cur_stream->socket->epoll & MTCP_EPOLLOUT : 0);
@@ -717,7 +716,7 @@ CreateNewFlowHTEntry(mtcp_manager_t mtcp, uint32_t cur_ts, const struct iphdr *i
 		/* handle the SYN */
 		ret = FilterSYNPacket(mtcp, iph->daddr, tcph->dest);
 		if (!ret) {
-			TRACE_INFO("Refusing SYN packet. reset.\n");
+			TRACE_DBG("Refusing SYN packet.\n");
 #ifdef DBGMSG
 			DumpIPPacket(mtcp, iph, ip_len);
 #endif
@@ -733,7 +732,7 @@ CreateNewFlowHTEntry(mtcp_manager_t mtcp, uint32_t cur_ts, const struct iphdr *i
 		cur_stream = HandlePassiveOpen(mtcp, 
 				cur_ts, iph, tcph, seq, window);
 		if (!cur_stream) {
-			TRACE_INFO("Not available space in flow pool.\n");
+			TRACE_DBG("Not available space in flow pool.\n");
 #ifdef DBGMSG
 			DumpIPPacket(mtcp, iph, ip_len);
 #endif
@@ -747,14 +746,14 @@ CreateNewFlowHTEntry(mtcp_manager_t mtcp, uint32_t cur_ts, const struct iphdr *i
 
 		return cur_stream;
 	} else if (tcph->rst) {
-		TRACE_INFO("Reset packet comes\n");
+		TRACE_DBG("Reset packet comes\n");
 #ifdef DBGMSG
 		DumpIPPacket(mtcp, iph, ip_len);
 #endif
 		/* for the reset packet, just discard */
 		return NULL;
 	} else {
-		TRACE_INFO("Weird packet comes.\n");
+		TRACE_DBG("Weird packet comes.\n");
 #ifdef DBGMSG
 		DumpIPPacket(mtcp, iph, ip_len);
 #endif
@@ -1253,11 +1252,6 @@ ProcessTCPPacket(mtcp_manager_t mtcp,
 	int ret;
 	int rc = -1;
 
-#if 0
-	TRACE_INFO("Receive TCP Packet: tcph->seq %u, ack: %u, len: %d\n",
-		seq, ack_seq, payloadlen);
-#endif
-
 	/* Check ip packet invalidation */	
 	if (ip_len < ((iph->ihl + tcph->doff) << 2))
 		return ERROR;
@@ -1292,18 +1286,12 @@ ProcessTCPPacket(mtcp_manager_t mtcp,
 
 	if (!(cur_stream = StreamHTSearch(mtcp->tcp_flow_table, &s_stream))) {
 		/* not found in flow table */
-                TRACE_INFO ("stream not found in flow table.\n");
 		cur_stream = CreateNewFlowHTEntry(mtcp, cur_ts, iph, ip_len, tcph, 
 				seq, ack_seq, payloadlen, window);
-                TRACE_INFO ("cannot create stream in flow table.\n");
 		if (!cur_stream)
 			return TRUE;
 	}
 
-#if 0
-        TRACE_INFO ("rel seq: %u len %u\n",
-                    seq - cur_stream->rcvvar->irs, payloadlen);
-#endif
 	TRACE_INFO("Receive TCP Packet: tcph->seq %u(+%u), ack: %u, len: %d\n",
 		seq, seq - cur_stream->rcvvar->irs,
                 ack_seq, payloadlen);
@@ -1313,14 +1301,14 @@ ProcessTCPPacket(mtcp_manager_t mtcp,
 		ret = ValidateSequence(mtcp, cur_stream, 
 				cur_ts, tcph, seq, ack_seq, payloadlen);
 		if (!ret) {
-			TRACE_ERROR("Stream %d: Unexpected sequence: %u, expected: %u\n",
+			TRACE_DBG("Stream %d: Unexpected sequence: %u, expected: %u\n",
 					cur_stream->id, seq, cur_stream->rcv_nxt);
-//#ifdef DBGMSG
+#ifdef DBGMSG
 			DumpIPPacket(mtcp, iph, ip_len);
-//#endif
-//#ifdef DUMP_STREAM
+#endif
+#ifdef DUMP_STREAM
 			DumpStream(mtcp, cur_stream);
-//#endif
+#endif
 			return TRUE;
 		}
 	}

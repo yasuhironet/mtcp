@@ -849,8 +849,8 @@ mtcp_connect(mctx_t mctx, int sockid,
 	return 0;
 }
 
-int 
-mtcp_reconnect(mctx_t mctx, int sockid, 
+int
+mtcp_reconnect(mctx_t mctx, int sockid,
 		const struct sockaddr *addr, socklen_t addrlen)
 {
 	mtcp_manager_t mtcp;
@@ -878,7 +878,7 @@ mtcp_reconnect(mctx_t mctx, int sockid,
 		errno = EBADF;
 		return -1;
 	}
-	
+
 	if (mtcp->smap[sockid].socktype != MTCP_SOCK_STREAM) {
 		TRACE_API("Not an end socket. id: %d\n", sockid);
 		errno = ENOTSOCK;
@@ -914,22 +914,22 @@ mtcp_reconnect(mctx_t mctx, int sockid,
 	dport = addr_in->sin_port;
 
 	/* address binding */
-	if ((socket->opts & MTCP_ADDR_BIND) && 
-	    socket->saddr.sin_port != INPORT_ANY &&
-	    socket->saddr.sin_addr.s_addr != INADDR_ANY) {
+	if ((socket->opts & MTCP_ADDR_BIND) &&
+		socket->saddr.sin_port != INPORT_ANY &&
+		socket->saddr.sin_addr.s_addr != INADDR_ANY) {
 		int rss_core;
 		uint8_t endian_check = FetchEndianType();
-		
-		rss_core = GetRSSCPUCore(socket->saddr.sin_addr.s_addr, dip, 
+
+		rss_core = GetRSSCPUCore(socket->saddr.sin_addr.s_addr, dip,
 					 socket->saddr.sin_port, dport, num_queues, endian_check);
-		
+
 		if (rss_core != mctx->cpu) {
 			errno = EINVAL;
 			return -1;
 		}
 	} else {
 		if (mtcp->ap) {
-			ret = FetchAddressPerCore(mtcp->ap, 
+			ret = FetchAddressPerCore(mtcp->ap,
 						  mctx->cpu, num_queues, addr_in, &socket->saddr);
 		} else {
 			uint8_t is_external;
@@ -938,7 +938,7 @@ mtcp_reconnect(mctx_t mctx, int sockid,
 				errno = EINVAL;
 				return -1;
 			}
-			ret = FetchAddress(ap[nif], 
+			ret = FetchAddress(ap[nif],
 					   mctx->cpu, num_queues, addr_in, &socket->saddr);
 			UNUSED(is_external);
 		}
@@ -950,7 +950,7 @@ mtcp_reconnect(mctx_t mctx, int sockid,
 		is_dyn_bound = TRUE;
 	}
 
-	cur_stream = CreateTCPStream(mtcp, socket, socket->socktype, 
+	cur_stream = CreateTCPStream(mtcp, socket, socket->socktype,
 			socket->saddr.sin_addr.s_addr, socket->saddr.sin_port, dip, dport);
 	if (!cur_stream) {
 		TRACE_ERROR("Socket %d: failed to create tcp_stream!\n", sockid);
@@ -997,7 +997,7 @@ mtcp_reconnect(mctx_t mctx, int sockid,
 				return -1;
 			}
 			if (cur_stream->state > TCP_ST_ESTABLISHED) {
-				TRACE_ERROR("Socket %d: weird state %s\n", 
+				TRACE_ERROR("Socket %d: weird state %s\n",
 						sockid, TCPStateToString(cur_stream));
 				// TODO: how to handle this?
 				errno = ENOSYS;
