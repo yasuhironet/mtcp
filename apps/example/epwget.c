@@ -29,6 +29,10 @@
 #include "tcp_out.h"
 #include "tcp_in.h"
 
+#include "debug_log.h"
+#include "debug_category.h"
+#include "debug_mtcp.h"
+
 uint8_t is_offline_resume = 0;
 uint8_t offline_resumed = 0;
 int offline_sockfd = -1;
@@ -763,7 +767,10 @@ HandleReadEvent(thread_context_t ctx, int sockid, struct wget_vars *wv)
 #endif
 
 #if 1
-                if (!offline_resumed && wv->recv > 15000000) {
+                uint64_t pause_bytes = 1 * 1000 * 1000;
+                if (!offline_resumed && wv->recv > pause_bytes) {
+                        DEBUG_MTCP_LOG (RECV, "recv: %'llu > %'llu",
+                                        wv->recv, pause_bytes);
                         offline_pause (ctx, sockid, wv);
                 }
 #endif
@@ -1087,6 +1094,13 @@ main(int argc, char **argv)
 	int ret;
 	int i, o;
 	int process_cpu;
+
+        debug_log_init (argv[0]);
+        DEBUG_OUTPUT_SET (STDOUT);
+        DEBUG_OUTPUT_FILE_SET ("debug_mtcp.log");
+        DEBUG_SET(MTCP, RECV);
+
+        DEBUG_MTCP_LOG (RECV, "debug log start.");
 
 	if (argc < 3) {
 		TRACE_CONFIG("Too few arguments!\n");
