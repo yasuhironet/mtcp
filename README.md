@@ -50,7 +50,7 @@ warning: can't determine socket ID for port 2!
 # cd apps/example/
 # cat config/route.conf
 ROUTES 1
-10.0.10.1/24 dpdk0
+10.0.10.1/24 dpdk1
 # cat config/arp.conf
 ARP_ENTRY 1
 10.0.10.1/32 <peer's mac addr>
@@ -58,6 +58,7 @@ ARP_ENTRY 1
 ## Run
 
 ```
+# cd apps/example/
 # ./epwget 10.0.10.1/dpdk-23.11.1.tar.xz 1 -N 1 -f epwget.conf
 Configuration updated by mtcp_setconf().
 Application configuration:
