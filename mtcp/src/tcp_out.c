@@ -12,6 +12,10 @@
 #include "pacing.h"
 #endif
 
+#include "debug_log.h"
+#include "debug_category.h"
+#include "debug_mtcp.h"
+
 #define TCP_CALCULATE_CHECKSUM      TRUE
 #define ACK_PIGGYBACK				TRUE
 #define TRY_SEND_BEFORE_QUEUE		FALSE
@@ -289,6 +293,9 @@ SendTCPPacket(struct mtcp_manager *mtcp, tcp_stream *cur_stream,
 
 	if (flags & TCP_FLAG_ACK) {
 		tcph->ack = TRUE;
+                DEBUG_MTCP_LOG (RECV, "send ack: rcv_nxt: %u irs: %u (%u)",
+                                cur_stream->rcv_nxt, cur_stream->rcvvar->irs,
+                                cur_stream->rcv_nxt - cur_stream->rcvvar->irs);
 		tcph->ack_seq = htonl(cur_stream->rcv_nxt);
 		cur_stream->sndvar->ts_lastack_sent = cur_ts;
 		cur_stream->last_active_ts = cur_ts;

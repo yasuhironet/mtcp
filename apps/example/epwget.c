@@ -409,11 +409,13 @@ offline_open ()
       if (ret < 0)
         {
           TRACE_INFO ("reading offline.save failed. back to pause mode.\n");
+          DEBUG_MTCP_LOG (RECV, "resume failed.");
         }
       else
         {
           is_offline_resume = 1;
           TRACE_INFO ("open offline.save succeeded. resume mode.\n");
+          DEBUG_MTCP_LOG (RECV, "resume mode.");
         }
       close (offline_sockfd);
       unlink (offline_filename);
@@ -423,6 +425,7 @@ offline_open ()
   if (! is_offline_resume)
     {
       TRACE_INFO ("pause mode. create file: %s\n", offline_filename);
+      DEBUG_MTCP_LOG (RECV, "pause mode.");
       offline_sockfd = open (offline_filename, O_RDWR | O_CREAT | O_TRUNC,
                              0644);
       assert (offline_sockfd >= 0);
@@ -586,10 +589,12 @@ offline_resume (thread_context_t ctx, int sockid, struct wget_vars *wv)
   stream->rcvvar->mdev_max = rcvvar.mdev_max;
   stream->rcvvar->rttvar = rcvvar.rttvar;
   stream->rcvvar->rtt_seq = rcvvar.rtt_seq;
+#if TCP_OPT_SACK_ENABLED
   stream->rcvvar->sacked_pkts = rcvvar.sacked_pkts;
   memcpy (stream->rcvvar->sack_table, rcvvar.sack_table,
           sizeof (struct sack_entry) * MAX_SACK_ENTRY);
   stream->rcvvar->sacks = rcvvar.sacks;
+#endif
 
   stream->sndvar->ip_id = sndvar.ip_id;
   stream->sndvar->mss = sndvar.mss;
@@ -691,6 +696,11 @@ HandleReadEvent(thread_context_t ctx, int sockid, struct wget_vars *wv)
 				ctx->stat.read_count, sockid, rd, wv->recv + rd,
 				wv->headerset, wv->header_len, wv->file_len);
 
+		DEBUG_MTCP_LOG (RECV, "read[%lu]: Socket %d: mtcp_read ret: %d, total_recv: %lu, "
+				"header_set: %d, header_len: %u, file_len: %lu\n",
+				ctx->stat.read_count, sockid, rd, wv->recv + rd,
+				wv->headerset, wv->header_len, wv->file_len);
+
 		pbuf = buf;
 		if (!wv->headerset) {
 			copy_len = MIN(rd, HTTP_HEADER_LEN - wv->resp_len);
@@ -757,6 +767,7 @@ HandleReadEvent(thread_context_t ctx, int sockid, struct wget_vars *wv)
 				 wr += _wr;	
 				 wv->write += _wr;
 				TRACE_APP("write[%lu]: +%d = %d / %d bytes (%lu / %lu) (file: %lu bytes)\n", ctx->stat.file_write_count, _wr, wr, rd, ctx->stat.file_writes, ctx->stat.reads, wv->file_len);
+				DEBUG_MTCP_LOG (RECV, "write[%lu]: +%d = %d / %d bytes (%lu / %lu) (file: %lu bytes)\n", ctx->stat.file_write_count, _wr, wr, rd, ctx->stat.file_writes, ctx->stat.reads, wv->file_len);
 			}
 		}
 		
@@ -1100,7 +1111,7 @@ main(int argc, char **argv)
         DEBUG_OUTPUT_FILE_SET ("debug_mtcp.log");
         DEBUG_SET(MTCP, RECV);
 
-        DEBUG_MTCP_LOG (RECV, "debug log start.");
+        DEBUG_MTCP_LOG (RECV, "%s start.", argv[0]);
 
 	if (argc < 3) {
 		TRACE_CONFIG("Too few arguments!\n");

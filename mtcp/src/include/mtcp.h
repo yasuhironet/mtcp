@@ -50,7 +50,8 @@
 #define ETH_NUM                         MAX_DEVICES
 
 #define TCP_OPT_TIMESTAMP_ENABLED       TRUE   // enabled for rtt measure
-#define TCP_OPT_SACK_ENABLED            TRUE   // only recv-side implemented
+//#define TCP_OPT_SACK_ENABLED            TRUE   // only recv-side implemented
+#define TCP_OPT_SACK_ENABLED            FALSE   // only recv-side implemented
 
 /* Only use rate limiting if using CCP */
 #if USE_CCP

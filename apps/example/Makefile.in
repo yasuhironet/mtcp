@@ -87,7 +87,7 @@ epserver: epserver.o ${MTCP_FLD}/lib/libmtcp.a
 	$(MSG) "   LD $<"
 	$(HIDE) ${CC} $< ${LIBS} ${UTIL_OBJ} -o $@
 
-epwget.o: epwget.c
+epwget.o: epwget.c ${MTCP_FLD}/lib/libmtcp.a
 	$(MSG) "   CC $<"
 	$(HIDE) ${CC} -c $< ${CFLAGS} ${INC}
 
