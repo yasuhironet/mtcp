@@ -85,12 +85,30 @@ void debug_log_init (char *progname);
     FLAG_UNSET (DEBUG_CONFIG(cate), DEBUG_TYPE(cate, type)); \
   } while (0)
 
+#define DEBUG_LOG_RAW(cate, type, format, ...) \
+  do { \
+    debug_log ("%s[%d] %s(): " format, \
+               __FILE__, __LINE__, __func__, ##__VA_ARGS__); \
+  } while (0)
+
+#define DEBUG_WARN(format, ...) \
+  do { \
+    debug_warn ("%s[%d] %s(): " format, \
+               __FILE__, __LINE__, __func__, ##__VA_ARGS__); \
+  } while (0)
+
+#define DEBUG_ERROR(format, ...) \
+  do { \
+    debug_error ("%s[%d] %s(): " format, \
+               __FILE__, __LINE__, __func__, ##__VA_ARGS__); \
+  } while (0)
+
 #define DEBUG_LOG(cate, type, format, ...) \
   do { \
     if (FLAG_CHECK (DEBUG_CONFIG(cate), \
                     DEBUG_TYPE(cate, type))) \
-      debug_log ("%s[%d] %s(): " format, \
-                 __FILE__, __LINE__, __func__, ##__VA_ARGS__); \
+      debug_log ("%s: %s[%d] %s(): " format, \
+                 #type, __FILE__, __LINE__, __func__, ##__VA_ARGS__); \
   } while (0)
 
 /* default types */
